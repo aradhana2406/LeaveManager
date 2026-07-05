@@ -1,4 +1,4 @@
-﻿namespace LeaveManager.Entities;
+namespace LeaveManager.Entities;
 
 public class LeaveType
 {
@@ -15,5 +15,6 @@ public class LeaveType
     public bool IsAccrued { get; set; } = false;
 
     public decimal AccrualPerMonth { get; set; } = 0;
-    public ICollection<EmployeeLeaveBalance> EmployeeLeaveBalances { get; set; }
+
+    public ICollection<EmployeeLeaveBalance> EmployeeLeaveBalances { get; set; } = new List<EmployeeLeaveBalance>();
 }

@@ -1,17 +1,16 @@
-﻿namespace LeaveManager.Entities;
+﻿using LeaveManager.Entities;
 
 public class EmployeeLeaveBalance
 {
     public int Id { get; set; }
 
-    public int EmployeeId{ get; set; }
+    public int EmployeeId { get; set; }
+    public Employee Employee { get; set; } = null!;
 
     public int LeaveTypeId { get; set; }
+    public LeaveType LeaveType { get; set; } = null!;
 
-    public int AllocatedLeaves { get; set; }
+    public decimal AllocatedLeaves { get; set; }
 
-    public int UsedLeaves { get; set; }
-    public Employee? Employee { get; set; }
-    public LeaveType? LeaveType { get; set; }
-
+    public decimal UsedLeaves { get; set; }
 }

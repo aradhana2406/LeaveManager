@@ -1,4 +1,4 @@
-﻿namespace LeaveManager.Features.Employee.DTOs;
+﻿namespace LeaveManager.Features.EmployeeManagement.DTOs;
 
 public class EmployeeLeaveBalanceExcelDto
 {
