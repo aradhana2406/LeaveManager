@@ -1,89 +1,80 @@
 # LeaveManager - Leave Management System
 
-A robust .NET 8 leave management application built with ASP.NET Core, Entity Framework Core, and MediatR.
+A .NET 8 leave management API built with ASP.NET Core, Entity Framework Core, ClosedXML, and SQL Server.
 
-##  Project Overview
+## Project Overview
 
-LeaveManager is a RESTful API for managing employee leave applications, leave types, and leave balance allocations. It implements the CQRS (Command Query Responsibility Segregation) pattern using MediatR for clean, maintainable command handling.
+LeaveManager is a RESTful API for managing employee leave applications, leave approval, leave types, and leave balance allocations.
 
 **Tech Stack:**
-- **.NET 8** - Runtime Framework
-- **ASP.NET Core** - Web Framework
+- **.NET 8** - Runtime framework
+- **ASP.NET Core** - Web API framework
 - **Entity Framework Core** - ORM
-- **MediatR** - CQRS Pattern
-- **ClosedXML** - Excel File Processing
+- **ClosedXML** - Excel file processing
 - **SQL Server** - Database
-
----
 
 ## Architecture
 
-### CQRS Pattern with MediatR
+The project uses a lightweight command-handler style. Controllers receive HTTP requests, create or accept command objects, and call the matching handler directly through dependency injection.
 
-This project uses the **Command Query Responsibility Segregation** pattern:
+Example flow for uploading leave balances:
 
+| Step | Component | Work |
+|------|-----------|------|
+| 1 | HTTP request | POST file to `/api/Excel/upload-leave-balances` |
+| 2 | `ExcelController` | Receives the file and creates `UploadLeaveBalanceExcelCommand` |
+| 3 | `UploadLeaveBalanceExcelHandler` | Parses and processes the Excel file |
+| 4 | `LeaveBalanceService` | Creates or updates employee leave balances |
+| 5 | Database | Saves changes |
 
-What Happens:
-Step	Who	What
-1	HTTP Request	POST file to /api/employee/upload-leave-balances
-2	EmployeeController	Receives file, creates command object
-3	_mediator.Send()	Dispatches the command
-4	MediatR Engine	Searches for handler implementing IRequestHandler<UploadLeaveBalanceExcelCommand, string>
-5	MediatR Engine	Finds UploadLeaveBalanceExcelHandler (registered in DI)
-6	MediatR Engine	EXPLICITLY CALLS: handler.Handle(request, cancellationToken)
-7	UploadLeaveBalanceExcelHandler.Handle()	Processes Excel file
-8	Database	Saves changes
+Handlers are registered in `Program.cs`:
 
-The Key Line in Program.cs:
-builder.Services.AddMediatR(cfg => 
-    cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+```csharp
+builder.Services.AddScoped<ApplyLeaveHandler>();
+builder.Services.AddScoped<ApproveLeaveHandler>();
+builder.Services.AddScoped<UploadLeaveBalanceExcelHandler>();
+```
 
-This tells MediatR to:
-1.	Scan the entire assembly for all classes implementing IRequestHandler<T, U>
-2.	Auto-register them in the dependency injection container
-3.	When _mediator.Send() is called, MediatR uses reflection to find the matching handler
-4.	MediatR instantiates the handler and calls Handle() internally
- 
-### Excel File Format
+## Excel File Format
 
 Expected columns in the Excel file:
 
-| Column 1 | Column 2 | Column 3 |
-|----------|----------|----------|
-| Employee Code | Leave Type Name | Allocated Leaves |
-| EMP001 | Annual Leave | 20 |
-| EMP002 | Sick Leave | 10 |
+| Column 1 | Column 2 | Column 3 | Column 4 |
+|----------|----------|----------|----------|
+| Employee Code | Leave Type Name | Allocated Leaves | Used Leaves |
+| EMP001 | Sick/Casual Leave | 10 | 0 |
+| EMP002 | Planned Leave | 12 | 2 |
 
-### How It Works
+## Main Flows
 
-#### 1. **Request Flow**
+### Apply Leave
 
 ```plaintext
-Employee Controller:
-- Authenticates user
-- Validates request
-- Maps to command object
-- Sends command via _mediator.Send()
+LeaveController
+- Receives leave application request
+- Calls ApplyLeaveHandler
 
-MediatR:
-- Receives command
-- Identifies handler
-- Calls handler's Handle method
-
-Handler (e.g., UploadLeaveBalanceExcelHandler):
-- Validates data
-- Processes each row in the Excel file
-- Saves data to the database
-
-Database:
-- Updates leave balances
-- Commits transaction
+ApplyLeaveHandler
+- Validates employee
+- Validates leave type
+- Checks leave balance for paid leave
+- Finds project approver
+- Creates pending leave application
+- Sends approval email
 ```
 
-#### 2. **Response**
+### Approve or Reject Leave
 
 ```plaintext
-Employee Controller:
-- Receives response from MediatR
-- Returns success or error response to the client
+LeaveController
+- Receives approval token and action
+- Decodes token
+- Calls ApproveLeaveHandler
 
+ApproveLeaveHandler
+- Verifies assigned approver
+- Ensures request is still pending
+- Approves or rejects the leave
+- Updates used leave balance when approved
+- Sends employee notification email
+```

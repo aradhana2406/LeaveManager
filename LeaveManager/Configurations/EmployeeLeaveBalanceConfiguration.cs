@@ -10,28 +10,33 @@ public class EmployeeLeaveBalanceConfiguration
     public void Configure(
         EntityTypeBuilder<EmployeeLeaveBalance> builder)
     {
-        builder.ToTable("EmployeeLeaveBalances");
+        builder.HasKey(e => e.Id);
 
-        builder.HasKey(x => x.Id);
-
-        builder.Property(x => x.AllocatedLeaves)
+        // Configure decimal properties with precision and scale
+        builder.Property(e => e.AllocatedLeaves)
+            .HasPrecision(5, 2)
             .IsRequired();
 
-        builder.Property(x => x.UsedLeaves)
+        builder.Property(e => e.UsedLeaves)
+            .HasPrecision(5, 2)
             .IsRequired();
-        builder.HasOne(x => x.Employee)
-            .WithMany()
-            .HasForeignKey(x => x.EmployeeId)
-            .OnDelete(DeleteBehavior.NoAction);
 
+        // Configure foreign key to Employee
+        builder.HasOne(e => e.Employee)
+            .WithMany(x => x.EmployeeLeaveBalances)
+            .HasForeignKey(e => e.EmployeeId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasOne<LeaveType>()
-            .WithMany()
-            .HasForeignKey(x => x.LeaveTypeId);
+        // Configure foreign key to LeaveType
+        builder.HasOne(e => e.LeaveType)
+            .WithMany(lt => lt.EmployeeLeaveBalances)
+            .HasForeignKey(e => e.LeaveTypeId)
+            .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasIndex(x =>
-            new { x.EmployeeId, x.LeaveTypeId })
-            .IsUnique();
-   
+        // Create unique constraint
+        builder.HasIndex(e => new { e.EmployeeId, e.LeaveTypeId })
+            .IsUnique()
+            .HasDatabaseName("IX_EmployeeLeaveBalance_EmployeeId_LeaveTypeId");
+
     }
 }

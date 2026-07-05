@@ -15,8 +15,27 @@ public class AppDbContext : DbContext
     public DbSet<LeaveType> LeaveTypes => Set<LeaveType>();
 
     public DbSet<LeaveApplication> LeaveApplications => Set<LeaveApplication>();
+
+    public DbSet<Project> Projects => Set<Project>();
+
+    public DbSet<Team> Teams => Set<Team>();
+
+    public DbSet<EmployeeTeam> EmployeeTeams => Set<EmployeeTeam>();
+
     public DbSet<EmployeeLeaveBalance> EmployeeLeaveBalances
     => Set<EmployeeLeaveBalance>();
+
+    public DbSet<EmployeeOnboardingProfile> EmployeeOnboardingProfiles
+        => Set<EmployeeOnboardingProfile>();
+
+    public DbSet<EmployeeOnboardingDocument> EmployeeOnboardingDocuments
+        => Set<EmployeeOnboardingDocument>();
+
+    public DbSet<UserLogin> UserLogins => Set<UserLogin>();
+
+    public DbSet<HrPolicy> HrPolicies => Set<HrPolicy>();
+
+    public DbSet<OrganizationRole> OrganizationRoles => Set<OrganizationRole>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

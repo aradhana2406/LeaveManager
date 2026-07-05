@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LeaveManager.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260510064920_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260511094154_initialcreate")]
+    partial class initialcreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -25,7 +25,7 @@ namespace LeaveManager.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("LeaveManager.Entities.Employee", b =>
+            modelBuilder.Entity("EmployeeLeaveBalance", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -33,53 +33,9 @@ namespace LeaveManager.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("AlternateTeamLeadId")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<string>("EmployeeID")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("FullName")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("TeamLeadId")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Email")
-                        .IsUnique();
-
-                    b.HasIndex("EmployeeID")
-                        .IsUnique();
-
-                    b.ToTable("Employees", (string)null);
-                });
-
-            modelBuilder.Entity("LeaveManager.Entities.EmployeeLeaveBalance", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("AllocatedLeaves")
-                        .HasColumnType("int");
+                    b.Property<decimal>("AllocatedLeaves")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
 
                     b.Property<int>("EmployeeId")
                         .HasColumnType("int");
@@ -87,20 +43,22 @@ namespace LeaveManager.Migrations
                     b.Property<int>("LeaveTypeId")
                         .HasColumnType("int");
 
-                    b.Property<int>("UsedLeaves")
-                        .HasColumnType("int");
+                    b.Property<decimal>("UsedLeaves")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("LeaveTypeId");
 
                     b.HasIndex("EmployeeId", "LeaveTypeId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("IX_EmployeeLeaveBalance_EmployeeId_LeaveTypeId");
 
-                    b.ToTable("EmployeeLeaveBalances", (string)null);
+                    b.ToTable("EmployeeLeaveBalances");
                 });
 
-            modelBuilder.Entity("LeaveManager.Entities.LeaveApplication", b =>
+            modelBuilder.Entity("LeaveApplication", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -114,7 +72,7 @@ namespace LeaveManager.Migrations
                     b.Property<int>("EmployeeId")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("EndDate")
+                    b.Property<DateTime>("FromDate")
                         .HasColumnType("datetime2");
 
                     b.Property<int>("LeaveTypeId")
@@ -124,16 +82,13 @@ namespace LeaveManager.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<DateTime>("StartDate")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
-                    b.Property<int>("TotalDays")
-                        .HasColumnType("int");
+                    b.Property<DateTime>("ToDate")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -142,6 +97,53 @@ namespace LeaveManager.Migrations
                     b.HasIndex("LeaveTypeId");
 
                     b.ToTable("LeaveApplications", (string)null);
+                });
+
+            modelBuilder.Entity("LeaveManager.Entities.Employee", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("EmployeeCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("EmployeeCode")
+                        .IsUnique();
+
+                    b.HasIndex("ProjectId");
+
+                    b.ToTable("Employees", (string)null);
                 });
 
             modelBuilder.Entity("LeaveManager.Entities.LeaveType", b =>
@@ -210,36 +212,105 @@ namespace LeaveManager.Migrations
                         });
                 });
 
-            modelBuilder.Entity("LeaveManager.Entities.EmployeeLeaveBalance", b =>
+            modelBuilder.Entity("LeaveManager.Entities.Project", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("PrimaryApproverId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SecondaryApproverId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PrimaryApproverId");
+
+                    b.HasIndex("SecondaryApproverId");
+
+                    b.ToTable("Project");
+                });
+
+            modelBuilder.Entity("EmployeeLeaveBalance", b =>
                 {
                     b.HasOne("LeaveManager.Entities.Employee", "Employee")
                         .WithMany()
                         .HasForeignKey("EmployeeId")
-                        .OnDelete(DeleteBehavior.NoAction)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("LeaveManager.Entities.LeaveType", null)
-                        .WithMany()
+                    b.HasOne("LeaveManager.Entities.LeaveType", "LeaveType")
+                        .WithMany("EmployeeLeaveBalances")
                         .HasForeignKey("LeaveTypeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Employee");
+
+                    b.Navigation("LeaveType");
                 });
 
-            modelBuilder.Entity("LeaveManager.Entities.LeaveApplication", b =>
+            modelBuilder.Entity("LeaveApplication", b =>
                 {
-                    b.HasOne("LeaveManager.Entities.Employee", null)
+                    b.HasOne("LeaveManager.Entities.Employee", "Employee")
                         .WithMany()
                         .HasForeignKey("EmployeeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("LeaveManager.Entities.LeaveType", null)
+                    b.HasOne("LeaveManager.Entities.LeaveType", "LeaveType")
                         .WithMany()
                         .HasForeignKey("LeaveTypeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("LeaveType");
+                });
+
+            modelBuilder.Entity("LeaveManager.Entities.Employee", b =>
+                {
+                    b.HasOne("LeaveManager.Entities.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("LeaveManager.Entities.Project", b =>
+                {
+                    b.HasOne("LeaveManager.Entities.Employee", "PrimaryApprover")
+                        .WithMany()
+                        .HasForeignKey("PrimaryApproverId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LeaveManager.Entities.Employee", "SecondaryApprover")
+                        .WithMany()
+                        .HasForeignKey("SecondaryApproverId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("PrimaryApprover");
+
+                    b.Navigation("SecondaryApprover");
+                });
+
+            modelBuilder.Entity("LeaveManager.Entities.LeaveType", b =>
+                {
+                    b.Navigation("EmployeeLeaveBalances");
                 });
 #pragma warning restore 612, 618
         }

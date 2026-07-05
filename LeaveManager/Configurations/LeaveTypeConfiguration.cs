@@ -49,6 +49,24 @@ public class LeaveTypeConfiguration
                 IsPaid = false,
                 RequiresAdvanceNotice = false,
                 AdvanceNoticeDays = 0,
+            },
+
+            new LeaveType
+            {
+                Id = 4,
+                Name = "Maternity Leave",
+                IsPaid = true,
+                RequiresAdvanceNotice = true,
+                AdvanceNoticeDays = 30,
+            },
+
+            new LeaveType
+            {
+                Id = 5,
+                Name = "Director Special Leave",
+                IsPaid = true,
+                RequiresAdvanceNotice = false,
+                AdvanceNoticeDays = 0,
             });
     }
 }

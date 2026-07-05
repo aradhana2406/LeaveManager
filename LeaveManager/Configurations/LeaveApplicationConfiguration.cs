@@ -20,12 +20,17 @@ public class LeaveApplicationConfiguration
         builder.Property(x => x.Reason)
             .HasMaxLength(500);
 
-        builder.HasOne<Employee>()
+        builder.Property(x => x.TotalDays)
+            .HasPrecision(5, 2);
+
+        builder.HasKey(x => x.Id);
+
+        builder.HasOne(x => x.Employee)
             .WithMany()
             .HasForeignKey(x => x.EmployeeId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne<LeaveType>()
+        builder.HasOne(x => x.LeaveType)
             .WithMany()
             .HasForeignKey(x => x.LeaveTypeId)
             .OnDelete(DeleteBehavior.Restrict);

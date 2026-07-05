@@ -1,0 +1,3 @@
+namespace LeaveManager.Features.EmployeeManagement.Commands.UploadExistingEmployeesExcel;
+
+public record UploadExistingEmployeesExcelCommand(IFormFile File);

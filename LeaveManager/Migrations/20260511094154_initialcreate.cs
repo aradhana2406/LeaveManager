@@ -8,29 +8,11 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace LeaveManager.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class initialcreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.CreateTable(
-                name: "Employees",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    EmployeeID = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    FullName = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
-                    Email = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
-                    TeamLeadId = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    AlternateTeamLeadId = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    Role = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Employees", x => x.Id);
-                });
-
             migrationBuilder.CreateTable(
                 name: "LeaveTypes",
                 columns: table => new
@@ -57,23 +39,36 @@ namespace LeaveManager.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     EmployeeId = table.Column<int>(type: "int", nullable: false),
                     LeaveTypeId = table.Column<int>(type: "int", nullable: false),
-                    AllocatedLeaves = table.Column<int>(type: "int", nullable: false),
-                    UsedLeaves = table.Column<int>(type: "int", nullable: false)
+                    AllocatedLeaves = table.Column<decimal>(type: "decimal(5,2)", precision: 5, scale: 2, nullable: false),
+                    UsedLeaves = table.Column<decimal>(type: "decimal(5,2)", precision: 5, scale: 2, nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_EmployeeLeaveBalances", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_EmployeeLeaveBalances_Employees_EmployeeId",
-                        column: x => x.EmployeeId,
-                        principalTable: "Employees",
-                        principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_EmployeeLeaveBalances_LeaveTypes_LeaveTypeId",
                         column: x => x.LeaveTypeId,
                         principalTable: "LeaveTypes",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Employees",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    EmployeeCode = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    FullName = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    Email = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    ProjectId = table.Column<int>(type: "int", nullable: false),
+                    Role = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Employees", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -84,11 +79,10 @@ namespace LeaveManager.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     EmployeeId = table.Column<int>(type: "int", nullable: false),
                     LeaveTypeId = table.Column<int>(type: "int", nullable: false),
-                    StartDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    EndDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    TotalDays = table.Column<int>(type: "int", nullable: false),
-                    Status = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    FromDate = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ToDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     Reason = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Status = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
                     ApproverId = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
@@ -108,6 +102,33 @@ namespace LeaveManager.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "Project",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    PrimaryApproverId = table.Column<int>(type: "int", nullable: false),
+                    SecondaryApproverId = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Project", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Project_Employees_PrimaryApproverId",
+                        column: x => x.PrimaryApproverId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Project_Employees_SecondaryApproverId",
+                        column: x => x.SecondaryApproverId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
             migrationBuilder.InsertData(
                 table: "LeaveTypes",
                 columns: new[] { "Id", "AccrualPerMonth", "AdvanceNoticeDays", "IsAccrued", "IsPaid", "Name", "RequiresAdvanceNotice" },
@@ -119,7 +140,7 @@ namespace LeaveManager.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_EmployeeLeaveBalances_EmployeeId_LeaveTypeId",
+                name: "IX_EmployeeLeaveBalance_EmployeeId_LeaveTypeId",
                 table: "EmployeeLeaveBalances",
                 columns: new[] { "EmployeeId", "LeaveTypeId" },
                 unique: true);
@@ -136,10 +157,15 @@ namespace LeaveManager.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_Employees_EmployeeID",
+                name: "IX_Employees_EmployeeCode",
                 table: "Employees",
-                column: "EmployeeID",
+                column: "EmployeeCode",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Employees_ProjectId",
+                table: "Employees",
+                column: "ProjectId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_LeaveApplications_EmployeeId",
@@ -150,11 +176,45 @@ namespace LeaveManager.Migrations
                 name: "IX_LeaveApplications_LeaveTypeId",
                 table: "LeaveApplications",
                 column: "LeaveTypeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Project_PrimaryApproverId",
+                table: "Project",
+                column: "PrimaryApproverId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Project_SecondaryApproverId",
+                table: "Project",
+                column: "SecondaryApproverId");
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_EmployeeLeaveBalances_Employees_EmployeeId",
+                table: "EmployeeLeaveBalances",
+                column: "EmployeeId",
+                principalTable: "Employees",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Cascade);
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_Employees_Project_ProjectId",
+                table: "Employees",
+                column: "ProjectId",
+                principalTable: "Project",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Restrict);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropForeignKey(
+                name: "FK_Project_Employees_PrimaryApproverId",
+                table: "Project");
+
+            migrationBuilder.DropForeignKey(
+                name: "FK_Project_Employees_SecondaryApproverId",
+                table: "Project");
+
             migrationBuilder.DropTable(
                 name: "EmployeeLeaveBalances");
 
@@ -162,10 +222,13 @@ namespace LeaveManager.Migrations
                 name: "LeaveApplications");
 
             migrationBuilder.DropTable(
+                name: "LeaveTypes");
+
+            migrationBuilder.DropTable(
                 name: "Employees");
 
             migrationBuilder.DropTable(
-                name: "LeaveTypes");
+                name: "Project");
         }
     }
 }
