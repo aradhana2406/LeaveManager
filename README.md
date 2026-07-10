@@ -10,10 +10,11 @@ LeaveManager is a .NET 8 employee leave-management application. It provides a br
 - EF Core migrations and seed data
 - ClosedXML for Excel import/export
 - Swagger/OpenAPI
-- HTML, CSS, and JavaScript served from `LeaveManager/wwwroot`
+- React 18, Redux, and Tabulator
+- Vite 8 frontend tooling
 - Gmail SMTP notifications
 
-The front end is part of the ASP.NET Core project, so there is no separate Node.js build or package installation.
+The editable frontend is in `LeaveManager/ClientApp`. Vite compiles it into `LeaveManager/wwwroot`, which ASP.NET Core serves in production.
 
 ## Repository structure
 
@@ -31,7 +32,17 @@ LeaveManager/
     |-- Features/                     # Application handlers/services
     |-- Infrastructure/               # Email and token services
     |-- Migrations/                   # SQL Server schema migrations
-    `-- wwwroot/                      # Browser application
+    |-- ClientApp/                    # Editable React/Vite source
+    |   |-- src/
+    |   |   |-- components/           # Separate React screen and shared UI components
+    |   |   |-- core/                 # API helpers, constants, shared UI runtime, domain helpers
+    |   |   |-- state/                # Redux store and reducer
+    |   |   |-- main.jsx              # React entry point
+    |   |   `-- styles.css            # App styles
+    |   |-- public/                   # Static frontend assets copied by Vite
+    |   |-- package.json              # Frontend dependencies and scripts
+    |   `-- vite.config.js            # Vite build/dev-server config
+    `-- wwwroot/                      # Compiled React production output
 ```
 
 ## Prerequisites
@@ -40,12 +51,13 @@ Install:
 
 1. [Git](https://git-scm.com/)
 2. [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-3. One of the following SQL Server options:
+3. Node.js `20.19+`, `22.12+`, or a newer supported version
+4. One of the following SQL Server options:
    - SQL Server Express LocalDB (simplest option on Windows)
    - SQL Server Express or Developer Edition
    - A reachable SQL Server/Azure SQL instance
-4. A modern browser
-5. Visual Studio 2022 with the **ASP.NET and web development** workload (optional)
+5. A modern browser
+6. Visual Studio 2022 with the **ASP.NET and web development** workload (optional)
 
 Verify the command-line tools:
 
@@ -53,9 +65,46 @@ Verify the command-line tools:
 git --version
 dotnet --version
 dotnet --list-sdks
+node --version
+npm --version
 ```
 
 The installed SDK list must include an `8.0.x` SDK or a compatible newer SDK capable of building `net8.0`.
+
+## Quick start after cloning
+
+Use these steps when you want the shortest path from a fresh clone to a running application.
+
+```powershell
+git clone https://github.com/aradhana2406/LeaveManager.git
+cd LeaveManager
+dotnet restore LeaveManager.sln
+cd LeaveManager/ClientApp
+npm.cmd ci
+npm.cmd run build
+cd ../..
+dotnet build LeaveManager.sln
+dotnet run --project LeaveManager/LeaveManager.csproj --launch-profile http
+```
+
+Then open:
+
+- Application: <http://localhost:5054>
+- Swagger UI: <http://localhost:5054/swagger>
+
+The default Windows development database is SQL Server LocalDB:
+
+```text
+Server=(localdb)\MSSQLLocalDB;Database=LeaveManagerDb;Integrated Security=true;TrustServerCertificate=True
+```
+
+No manual database creation is required. On first startup, the application applies EF Core migrations and seeds demo data. If you do not have SQL Server available and only want a temporary demo, run this before `dotnet run`:
+
+```powershell
+$env:UseInMemoryDatabase = "true"
+```
+
+Use `npm.cmd` in PowerShell if `npm` is blocked by the Windows script execution policy.
 
 ## Visual Studio setup (recommended for Windows)
 
@@ -94,7 +143,23 @@ Use this workflow if you want to clone, configure, migrate, and run the project 
 
 The `http` profile starts the application at `http://localhost:5054` with the Development environment.
 
-### 4. Configure SQL Server LocalDB
+### 4. Restore and build the React frontend
+
+1. In Visual Studio, select **View > Terminal**.
+2. Run:
+
+   ```powershell
+   cd LeaveManager/ClientApp
+   npm.cmd ci
+   npm.cmd run build
+   cd ../..
+   ```
+
+3. Confirm `LeaveManager/wwwroot/index.html` and compiled files under `LeaveManager/wwwroot/assets` were generated.
+
+Use `npm ci` after cloning because it installs the exact versions in `package-lock.json`. Run `npm install` only when intentionally adding or updating frontend dependencies. If PowerShell allows `npm` directly on your machine, `npm ci` and `npm run build` are also fine.
+
+### 5. Configure SQL Server LocalDB
 
 The project is already configured to use the default LocalDB instance and a database named `LeaveManagerDb`:
 
@@ -114,7 +179,7 @@ No database needs to be created manually. EF Core creates `LeaveManagerDb` when 
 
 If you use a different SQL Server instance, do not put its password in `appsettings.json`. Configure it with User Secrets as described next.
 
-### 5. Configure local secrets in Visual Studio
+### 6. Configure local secrets in Visual Studio
 
 1. In **Solution Explorer**, right-click the `LeaveManager` project.
 2. Select **Manage User Secrets**.
@@ -153,7 +218,7 @@ If you only want to explore the UI without SQL Server, add this instead:
 
 In-memory data is deleted whenever the application stops.
 
-### 6. Apply database migrations from Visual Studio
+### 7. Apply database migrations from Visual Studio
 
 The application automatically applies pending migrations when it starts. To apply them manually first:
 
@@ -180,7 +245,7 @@ cd ..
 
 Do not run SQL migrations when `UseInMemoryDatabase` is enabled.
 
-### 7. Build and run in Visual Studio
+### 8. Build and run in Visual Studio
 
 1. Select **Build > Build Solution**, or press `Ctrl+Shift+B`.
 2. Confirm the **Error List** has no build errors.
@@ -193,7 +258,7 @@ On the first run, EF Core applies migrations and seeds demo accounts. Sign in wi
 
 To stop the application, click the red stop button in Visual Studio or press `Shift+F5`.
 
-### 8. Common Visual Studio fixes
+### 9. Common Visual Studio fixes
 
 - **NuGet packages are missing:** right-click the solution and select **Restore NuGet Packages**.
 - **The wrong page opens:** confirm the `http` profile is selected and browse directly to `http://localhost:5054`.
@@ -220,7 +285,33 @@ All commands below assume the terminal is in this repository root unless stated 
 dotnet restore LeaveManager.sln
 ```
 
-### 3. Configure the database
+### 3. Install and build the React frontend
+
+```powershell
+cd LeaveManager/ClientApp
+npm.cmd ci
+npm.cmd run build
+cd ../..
+```
+
+The build writes the deployable React application to `LeaveManager/wwwroot`.
+
+For frontend development, run the ASP.NET Core API and Vite in separate terminals:
+
+```powershell
+# Terminal 1, from the repository root
+dotnet run --project LeaveManager/LeaveManager.csproj --launch-profile http
+```
+
+```powershell
+# Terminal 2
+cd LeaveManager/ClientApp
+npm.cmd run dev
+```
+
+Open `http://localhost:5173`. Vite proxies `/api` requests to the ASP.NET Core API at `http://localhost:5054`.
+
+### 4. Configure the database
 
 The application reads its connection string from `ConnectionStrings:DefaultConnection`. The checked-in development default is:
 
@@ -282,7 +373,7 @@ $env:UseInMemoryDatabase = "true"
 
 This database is erased every time the application stops. EF migration commands still target SQL Server, so do not use them in this mode.
 
-### 4. Configure email
+### 5. Configure email
 
 The leave approval, onboarding, and device-ticket workflows send SMTP email. Configure these settings before testing email-dependent actions:
 
@@ -299,7 +390,7 @@ For Gmail, enable two-step verification and create a Google App Password. Do not
 
 For a deployed application, change `AppSettings__BaseUrl` to its public HTTPS URL so email links point to the correct site.
 
-### 5. Create and update the database
+### 6. Create and update the database
 
 The application automatically runs `Database.Migrate()` and seeds data at startup. Therefore, the simplest setup is to continue to the run step.
 
@@ -336,7 +427,7 @@ dotnet ef database update
 cd ..
 ```
 
-### 6. Build the solution
+### 7. Build the solution
 
 ```powershell
 dotnet build LeaveManager.sln
@@ -344,7 +435,22 @@ dotnet build LeaveManager.sln
 
 The build should complete with zero errors.
 
-### 7. Run the application
+For a Release build:
+
+```powershell
+dotnet build LeaveManager.sln --configuration Release
+```
+
+If frontend files changed, run the React build before the .NET build:
+
+```powershell
+cd LeaveManager/ClientApp
+npm.cmd run build
+cd ../..
+dotnet build LeaveManager.sln --configuration Release
+```
+
+### 8. Run the application
 
 ```powershell
 dotnet run --project LeaveManager/LeaveManager.csproj --launch-profile http
@@ -365,6 +471,29 @@ dotnet run --project LeaveManager/LeaveManager.csproj --launch-profile https
 ```
 
 The HTTPS profile uses `https://localhost:7087` and also listens on `http://localhost:5054`.
+
+### 9. Publish the application
+
+Use publish when you want deployable build output:
+
+```powershell
+dotnet publish LeaveManager/LeaveManager.csproj --configuration Release --output artifacts/publish
+```
+
+The project file runs `npm ci` and `npm run build` during publish, then copies the compiled React output from `ClientApp` into `wwwroot`.
+
+The published files are written to:
+
+```text
+artifacts/publish
+```
+
+Run the published app locally with:
+
+```powershell
+cd artifacts/publish
+dotnet LeaveManager.dll
+```
 
 ## Database initialization and seed accounts
 
@@ -398,11 +527,44 @@ After the site starts:
 7. Return to the employee account and confirm the status/balance update.
 8. Use Swagger to inspect and try API request/response schemas.
 
-The front end is static JavaScript. If Node.js is installed, its syntax can be checked with:
+The frontend source is a Vite-powered React application. Validate a production build with:
 
 ```powershell
-node --check LeaveManager/wwwroot/app.js
+cd LeaveManager/ClientApp
+npm.cmd ci
+npm.cmd run build
+npm.cmd audit
+cd ../..
 ```
+
+If PowerShell says `npm.ps1 cannot be loaded because running scripts is disabled`, run the same commands with `npm.cmd`:
+
+```powershell
+npm.cmd ci
+npm.cmd run build
+npm.cmd audit
+```
+
+Edit files under `ClientApp/src` and `ClientApp/public`; do not hand-edit hashed files in `wwwroot/assets` because Vite replaces them on the next build.
+
+The main React files are separated like this:
+
+| Folder/file | Purpose |
+|---|---|
+| `ClientApp/src/main.jsx` | Mounts the React app into the browser |
+| `ClientApp/src/components/App.jsx` | App shell, login screen, sidebar routing |
+| `ClientApp/src/components/Home.jsx` | HR home, HR control panel, leadership overview |
+| `ClientApp/src/components/LeaveHome.jsx` | Employee leave request and leave history screen |
+| `ClientApp/src/components/EmployeeOnboarding.jsx` | Employee onboarding part 2 |
+| `ClientApp/src/components/DeviceManagement.jsx` | Device ticket forms, queue, and timeline |
+| `ClientApp/src/components/HrRegistration.jsx` | HR employee registration/onboarding part 1 |
+| `ClientApp/src/components/ProjectBuilder.jsx` | Project and team management |
+| `ClientApp/src/components/HrBulkUploads.jsx` | Excel upload screens |
+| `ClientApp/src/components/ReviewerInbox.jsx` | Leave approval inbox |
+| `ClientApp/src/components/Directory.jsx` | Organization hierarchy and employee edit modal |
+| `ClientApp/src/components/common.jsx` | Shared components such as fields, messages, cards, and upload results |
+| `ClientApp/src/core/` | API calls, helper functions, constants, React helper |
+| `ClientApp/src/state/store.js` | Redux initial state, reducer, and store |
 
 ## Excel imports
 
