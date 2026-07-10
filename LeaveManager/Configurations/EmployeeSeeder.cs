@@ -15,6 +15,7 @@ public static class EmployeeSeeder
         }
 
         UpdateTemporaryRakeshEmail(context);
+        EnsureAradhanaDemoEmployee(context);
     }
 
     private static void SeedInitialLeadership(AppDbContext context)
@@ -139,6 +140,167 @@ public static class EmployeeSeeder
 
         rakesh.Email = TemporaryRakeshEmail;
         context.SaveChanges();
+    }
+
+    private static void EnsureAradhanaDemoEmployee(AppDbContext context)
+    {
+        var lead = context.Employees.FirstOrDefault(x => x.EmployeeCode == "HR001" && x.IsActive) ??
+            context.Employees.FirstOrDefault(x => x.Role.IsHrRole() && x.IsActive);
+
+        if (lead == null)
+        {
+            return;
+        }
+
+        var project = context.Projects.FirstOrDefault(x => x.Name == "People Operations Demo");
+        if (project == null)
+        {
+            project = new Project { Name = "People Operations Demo" };
+            context.Projects.Add(project);
+            context.SaveChanges();
+        }
+
+        var team = context.Teams.FirstOrDefault(x => x.Name == "Employee Support" && x.ProjectId == project.Id);
+        if (team == null)
+        {
+            team = new Team
+            {
+                Name = "Employee Support",
+                ProjectId = project.Id,
+                LeadId = lead.Id
+            };
+
+            context.Teams.Add(team);
+            context.SaveChanges();
+        }
+        else if (team.LeadId != lead.Id)
+        {
+            team.LeadId = lead.Id;
+            context.SaveChanges();
+        }
+
+        var employee = context.Employees.FirstOrDefault(x => x.EmployeeCode == "67") ??
+            context.Employees.FirstOrDefault(x => x.Email == "aradhana.shinde@relisfottechnologies.com") ??
+            context.Employees.FirstOrDefault(x => x.Email == "aradhana.shinde@company.com") ??
+            context.Employees.FirstOrDefault(x => x.EmployeeCode == "ARADHANA");
+
+        if (employee == null)
+        {
+            employee = new Employee
+            {
+                EmployeeCode = "67",
+                FullName = "Aradhana Shinde",
+                Email = "aradhana.shinde@company.com",
+                Department = "Engineering",
+                Designation = "Software Engineer",
+                JobRole = "Software Engineer",
+                EmploymentType = "Full-time",
+                Location = "Mumbai",
+                SalaryStructureDetails = "CTC 8.5 LPA | Fixed 7.2 LPA | Variable 1.3 LPA",
+                JoinDate = new DateTime(2026, 7, 9),
+                PrimaryTeamId = team.Id,
+                Role = Role.Employee,
+                IsActive = true
+            };
+
+            context.Employees.Add(employee);
+            context.SaveChanges();
+        }
+        else
+        {
+            employee.FullName = string.IsNullOrWhiteSpace(employee.FullName) ? "Aradhana Shinde" : employee.FullName;
+            employee.Email = string.IsNullOrWhiteSpace(employee.Email) ? "aradhana.shinde@company.com" : employee.Email;
+            employee.Department = string.IsNullOrWhiteSpace(employee.Department) ? "Engineering" : employee.Department;
+            employee.Designation = string.IsNullOrWhiteSpace(employee.Designation) ? "Software Engineer" : employee.Designation;
+            employee.JobRole = string.IsNullOrWhiteSpace(employee.JobRole) ? "Software Engineer" : employee.JobRole;
+            employee.EmploymentType = string.IsNullOrWhiteSpace(employee.EmploymentType) ? "Full-time" : employee.EmploymentType;
+            employee.Location = string.IsNullOrWhiteSpace(employee.Location) ? "Mumbai" : employee.Location;
+            employee.SalaryStructureDetails = string.IsNullOrWhiteSpace(employee.SalaryStructureDetails)
+                ? "CTC 8.5 LPA | Fixed 7.2 LPA | Variable 1.3 LPA"
+                : employee.SalaryStructureDetails;
+            employee.PrimaryTeamId ??= team.Id;
+            employee.Role = Role.Employee;
+            employee.IsActive = true;
+            context.SaveChanges();
+        }
+
+        var membershipExists = context.EmployeeTeams.Any(x => x.EmployeeId == employee.Id && x.TeamId == team.Id);
+        if (!membershipExists)
+        {
+            context.EmployeeTeams.Add(new EmployeeTeam
+            {
+                EmployeeId = employee.Id,
+                TeamId = team.Id
+            });
+            context.SaveChanges();
+        }
+
+        var employeeLogin = context.UserLogins.FirstOrDefault(x => x.EmployeeId == employee.Id);
+        var aradhanaLogin = context.UserLogins.FirstOrDefault(x => x.Username == "aradhana");
+        var login = aradhanaLogin ?? employeeLogin;
+
+        if (employeeLogin != null && aradhanaLogin != null && employeeLogin.Id != aradhanaLogin.Id)
+        {
+            employeeLogin.Username = employee.EmployeeCode.Trim().ToLowerInvariant() + "-legacy";
+            employeeLogin.IsActive = false;
+        }
+
+        if (login == null)
+        {
+            context.UserLogins.Add(new UserLogin
+            {
+                EmployeeId = employee.Id,
+                Username = "aradhana",
+                Password = "demo123",
+                IsActive = true
+            });
+        }
+        else
+        {
+            login.EmployeeId = employee.Id;
+            login.Username = "aradhana";
+            login.Password = "demo123";
+            login.IsActive = true;
+        }
+
+        var duplicateDemoEmployee = context.Employees.FirstOrDefault(x => x.EmployeeCode == "ARADHANA" && x.Id != employee.Id);
+        if (duplicateDemoEmployee != null)
+        {
+            duplicateDemoEmployee.IsActive = false;
+        }
+
+        EnsureDefaultLeaveBalances(context, employee.Id);
+        context.SaveChanges();
+    }
+
+    private static void EnsureDefaultLeaveBalances(AppDbContext context, int employeeId)
+    {
+        var leaveTypes = context.LeaveTypes.AsNoTracking().ToList();
+        var defaultBalances = new Dictionary<string, decimal>
+        {
+            ["Sick/Casual Leave"] = 7m,
+            ["Director Special Leave"] = 0m,
+            ["Planned Leave"] = 1m,
+            ["Maternity Leave"] = 60m,
+            ["Unpaid Leave"] = 0m
+        };
+
+        foreach (var leaveType in leaveTypes.Where(x => defaultBalances.ContainsKey(x.Name)))
+        {
+            var existingBalance = context.EmployeeLeaveBalances
+                .FirstOrDefault(x => x.EmployeeId == employeeId && x.LeaveTypeId == leaveType.Id);
+
+            if (existingBalance == null)
+            {
+                context.EmployeeLeaveBalances.Add(new EmployeeLeaveBalance
+                {
+                    EmployeeId = employeeId,
+                    LeaveTypeId = leaveType.Id,
+                    AllocatedLeaves = defaultBalances[leaveType.Name],
+                    UsedLeaves = 0m
+                });
+            }
+        }
     }
 
     private static void SeedPreetiLeaveBalances(AppDbContext context)

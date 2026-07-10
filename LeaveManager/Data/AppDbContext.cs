@@ -31,6 +31,15 @@ public class AppDbContext : DbContext
     public DbSet<EmployeeOnboardingDocument> EmployeeOnboardingDocuments
         => Set<EmployeeOnboardingDocument>();
 
+    public DbSet<EmployeeOnboardingExperience> EmployeeOnboardingExperiences
+        => Set<EmployeeOnboardingExperience>();
+
+    public DbSet<EmployeeDeviceTicket> EmployeeDeviceTickets
+        => Set<EmployeeDeviceTicket>();
+
+    public DbSet<EmployeeDeviceTicketTimelineEvent> EmployeeDeviceTicketTimelineEvents
+        => Set<EmployeeDeviceTicketTimelineEvent>();
+
     public DbSet<UserLogin> UserLogins => Set<UserLogin>();
 
     public DbSet<HrPolicy> HrPolicies => Set<HrPolicy>();

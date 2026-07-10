@@ -80,19 +80,19 @@ public class AuthController : ControllerBase
 
         if (role.IsHrRole())
         {
-            views.AddRange(new[] { "directory", "hrHome", "hrControl", "register", "review", "projects", "balances", "apply", "onboarding" });
+            views.AddRange(new[] { "directory", "hrHome", "hrControl", "register", "review", "deviceManagement", "projects", "balances", "apply", "onboarding" });
             return views.Distinct().ToList();
         }
 
         if (role == Role.OrganizationHead)
         {
-            views.AddRange(new[] { "overview", "review", "directory", "apply", "onboarding" });
+            views.AddRange(new[] { "overview", "review", "directory", "apply", "onboarding", "deviceManagement" });
             return views.Distinct().ToList();
         }
 
         if (role == Role.TeamLead)
         {
-            views.AddRange(new[] { "directory", "review", "apply", "onboarding" });
+            views.AddRange(new[] { "directory", "review", "apply", "onboarding", "deviceManagement" });
             return views.Distinct().ToList();
         }
 
@@ -101,7 +101,7 @@ public class AuthController : ControllerBase
             views.Add("review");
         }
 
-        views.AddRange(new[] { "directory", "apply", "onboarding" });
+        views.AddRange(new[] { "directory", "apply", "onboarding", "deviceManagement" });
         return views.Distinct().ToList();
     }
 }

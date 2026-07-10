@@ -36,5 +36,10 @@ public class EmployeeOnboardingDocumentConfiguration : IEntityTypeConfiguration<
             .WithMany()
             .HasForeignKey(x => x.EmployeeId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(x => x.EmployeeOnboardingExperience)
+            .WithMany(x => x.Documents)
+            .HasForeignKey(x => x.EmployeeOnboardingExperienceId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

@@ -7,6 +7,7 @@ using LeaveManager.Features.Leave.Commands.ApproveRejectLeave;
 using LeaveManager.Infrastructure.Notifications;
 using LeaveManager.Infrastructure.Token;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 namespace LeaveManager
 {
@@ -30,7 +31,8 @@ namespace LeaveManager
             {
                 if (useInMemoryDatabase)
                 {
-                    options.UseInMemoryDatabase("LeaveManagerDev");
+                    options.UseInMemoryDatabase("LeaveManagerDev")
+                        .ConfigureWarnings(warnings => warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning));
                 }
                 else
                 {

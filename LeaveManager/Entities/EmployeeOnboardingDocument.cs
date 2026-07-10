@@ -8,6 +8,10 @@ public class EmployeeOnboardingDocument
 
     public Employee Employee { get; set; } = null!;
 
+    public int? EmployeeOnboardingExperienceId { get; set; }
+
+    public EmployeeOnboardingExperience? EmployeeOnboardingExperience { get; set; }
+
     public string DocumentType { get; set; } = string.Empty;
 
     public string OriginalFileName { get; set; } = string.Empty;

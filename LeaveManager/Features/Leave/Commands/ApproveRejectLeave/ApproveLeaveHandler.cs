@@ -221,6 +221,7 @@ public class ApproveLeaveHandler
         await _emailService.SendEmailAsync(
             leave.Employee!.Email,
             $"Leave Request {leave.Status}",
-            emailBody);
+            emailBody,
+            cancellationToken: cancellationToken);
     }
 }

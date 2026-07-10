@@ -22,5 +22,7 @@ public class EmployeeOnboardingProfile
 
     public DateTime LastUpdatedOn { get; set; }
 
+    public ICollection<EmployeeOnboardingExperience> Experiences { get; set; } = new List<EmployeeOnboardingExperience>();
+
     public ICollection<EmployeeOnboardingDocument> Documents { get; set; } = new List<EmployeeOnboardingDocument>();
 }

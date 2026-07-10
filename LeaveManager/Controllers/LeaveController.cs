@@ -79,6 +79,7 @@ public class LeaveController : ControllerBase
                 x.FromDate,
                 x.ToDate,
                 x.Reason,
+                x.ApprovalReason,
                 x.AppliedOn,
                 x.ApprovedOn,
                 x.RejectedOn,
@@ -179,6 +180,7 @@ public class LeaveController : ControllerBase
                 x.FromDate,
                 x.ToDate,
                 x.Reason,
+                x.ApprovalReason,
                 x.AppliedOn,
                 TotalDays = x.TotalDays > 0
                     ? x.TotalDays
@@ -208,6 +210,7 @@ public class LeaveController : ControllerBase
                 x.FromDate,
                 x.ToDate,
                 x.Reason,
+                x.ApprovalReason,
                 x.AppliedOn,
                 x.ApprovedOn,
                 x.RejectedOn,
@@ -304,7 +307,9 @@ public class LeaveController : ControllerBase
         }
 
         leave.Status = "Cancelled";
-        leave.ApprovalReason = "Cancelled by employee";
+        leave.ApprovalReason = string.IsNullOrWhiteSpace(request.Reason)
+            ? "Cancelled by employee"
+            : "Cancelled by employee: " + request.Reason.Trim();
         leave.RejectedOn = DateTime.UtcNow;
         leave.RejectedById = request.EmployeeId;
 
@@ -436,4 +441,6 @@ public class LeaveController : ControllerBase
 public class CancelLeaveRequest
 {
     public int EmployeeId { get; set; }
+
+    public string? Reason { get; set; }
 }

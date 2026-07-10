@@ -44,6 +44,7 @@ public partial class WorkspaceController : ControllerBase
 
         var employees = await _context.Employees
             .AsNoTracking()
+            .Where(x => x.IsActive)
             .Include(x => x.OrganizationRole)
             .Include(x => x.PrimaryTeam)
                 .ThenInclude(x => x!.Lead)
@@ -247,7 +248,7 @@ public partial class WorkspaceController : ControllerBase
         await _leaveAccrualService.SyncEmployeeAsync(employee.Id, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
 
-        var invitationEmailSent = await TrySendOnboardingInviteAsync(employee, login.Username);
+        var invitationEmailSent = await TrySendOnboardingInviteAsync(employee, login.Username, cancellationToken);
 
         return Ok(new
         {
@@ -735,7 +736,10 @@ public partial class WorkspaceController
         return login;
     }
 
-    private async Task<bool> TrySendOnboardingInviteAsync(Employee employee, string username)
+    private async Task<bool> TrySendOnboardingInviteAsync(
+        Employee employee,
+        string username,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -743,7 +747,8 @@ public partial class WorkspaceController
             await _emailService.SendEmailAsync(
                 employee.Email,
                 "Complete your onboarding details - LeaveManager",
-                GenerateOnboardingInviteEmail(employee, username, baseUrl));
+                GenerateOnboardingInviteEmail(employee, username, baseUrl),
+                cancellationToken: cancellationToken);
             return true;
         }
         catch (Exception ex)

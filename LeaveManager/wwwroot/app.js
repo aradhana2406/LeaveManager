@@ -32,7 +32,8 @@
       joinDate: currentDateInputValue(),
       role: 1,
       primaryTeamId: "",
-      teamIds: []
+      teamIds: [],
+      submitting: false
     },
     leaveForm: {
       employeeId: "",
@@ -40,7 +41,8 @@
       startDate: "",
       endDate: "",
       isHalfDay: false,
-      reason: ""
+      reason: "",
+      submitting: false
     },
     hrPolicyForm: {
       allowHalfDayLeave: false
@@ -54,10 +56,29 @@
       panNumber: "",
       aadhaarNumber: "",
       hasPriorExperience: true,
-      previousEmployerName: "",
-      yearsOfExperience: "",
-      relievingEmailForwarded: false,
+      experiences: [
+        { id: "", companyName: "", jobTitle: "", yearsOfExperience: "", relievingEmailForwarded: false }
+      ],
       documents: []
+    },
+    deviceTicketForm: {
+      employeeId: "",
+      requestType: "Device Issue",
+      deviceType: "Laptop",
+      notificationTo: "devicehelp@company.com",
+      notificationCc: "hr@company.com",
+      subject: "Device encountered an issue",
+      description: "",
+      submitting: false
+    },
+    employeeDeviceTickets: {
+      employeeId: "",
+      tickets: [],
+      loading: false
+    },
+    hrDeviceTickets: {
+      tickets: [],
+      loading: false
     },
     projectForm: {
       name: ""
@@ -134,6 +155,10 @@
             ...state.onboardingForm,
             employeeId: currentEmployeeId || state.onboardingForm.employeeId || firstId(action.payload.employees)
           },
+          deviceTicketForm: {
+            ...state.deviceTicketForm,
+            employeeId: currentEmployeeId || state.deviceTicketForm.employeeId || firstId(action.payload.employees)
+          },
           teamForm: {
             ...state.teamForm,
             projectId: state.teamForm.projectId || firstId(action.payload.projects),
@@ -148,6 +173,10 @@
           myLeaves: {
             ...state.myLeaves,
             employeeId: currentEmployeeId || state.myLeaves.employeeId
+          },
+          employeeDeviceTickets: {
+            ...state.employeeDeviceTickets,
+            employeeId: currentEmployeeId || state.employeeDeviceTickets.employeeId
           }
         };
       case "auth/update":
@@ -172,6 +201,10 @@
             ...state.onboardingForm,
             employeeId: String(action.payload.employeeId)
           },
+          deviceTicketForm: {
+            ...state.deviceTicketForm,
+            employeeId: String(action.payload.employeeId)
+          },
           reviewer: {
             ...state.reviewer,
             reviewerId: canApproveRole(action.payload.role) ? String(action.payload.employeeId) : ""
@@ -179,6 +212,11 @@
           myLeaves: {
             employeeId: String(action.payload.employeeId),
             requests: [],
+            loading: false
+          },
+          employeeDeviceTickets: {
+            employeeId: String(action.payload.employeeId),
+            tickets: [],
             loading: false
           },
           message: null
@@ -204,6 +242,15 @@
             requests: [],
             loading: false
           },
+          employeeDeviceTickets: {
+            employeeId: "",
+            tickets: [],
+            loading: false
+          },
+          hrDeviceTickets: {
+            tickets: [],
+            loading: false
+          },
           message: null
         };
       case "view/set":
@@ -213,6 +260,7 @@
       case "employeeForm/update":
       case "leaveForm/update":
       case "onboardingForm/update":
+      case "deviceTicketForm/update":
       case "projectForm/update":
       case "teamForm/update":
       case "hrPolicyForm/update":
@@ -247,7 +295,16 @@
             joinDate: currentDateInputValue(),
             role: 1,
             primaryTeamId: firstTeamId(state.data),
-            teamIds: [firstTeamId(state.data)].filter(Boolean)
+            teamIds: [firstTeamId(state.data)].filter(Boolean),
+            submitting: false
+          }
+        };
+      case "employeeForm/submitting":
+        return {
+          ...state,
+          employeeForm: {
+            ...state.employeeForm,
+            submitting: Boolean(action.value)
           }
         };
       case "leaveForm/reset":
@@ -259,7 +316,16 @@
             startDate: "",
             endDate: "",
             isHalfDay: false,
-            reason: ""
+            reason: "",
+            submitting: false
+          }
+        };
+      case "leaveForm/submitting":
+        return {
+          ...state,
+          leaveForm: {
+            ...state.leaveForm,
+            submitting: Boolean(action.value)
           }
         };
       case "roleForm/reset":
@@ -278,10 +344,94 @@
             panNumber: action.payload.panNumber || "",
             aadhaarNumber: action.payload.aadhaarNumber || "",
             hasPriorExperience: action.payload.hasPriorExperience !== false,
-            previousEmployerName: action.payload.previousEmployerName || "",
-            yearsOfExperience: action.payload.yearsOfExperience === null || action.payload.yearsOfExperience === undefined ? "" : String(action.payload.yearsOfExperience),
-            relievingEmailForwarded: Boolean(action.payload.relievingEmailForwarded),
+            experiences: action.payload.experiences && action.payload.experiences.length
+              ? action.payload.experiences.map(function (item) {
+                  return {
+                    id: item.id || "",
+                    companyName: item.companyName || "",
+                    jobTitle: item.jobTitle || "",
+                    yearsOfExperience: item.yearsOfExperience === null || item.yearsOfExperience === undefined ? "" : String(item.yearsOfExperience),
+                    relievingEmailForwarded: Boolean(item.relievingEmailForwarded)
+                  };
+                })
+              : [{ id: "", companyName: "", jobTitle: "", yearsOfExperience: "", relievingEmailForwarded: false }],
             documents: action.payload.documents || []
+          }
+        };
+      case "onboardingExperience/update": {
+        const experiences = state.onboardingForm.experiences.map(function (item, index) {
+          return index === action.index ? { ...item, [action.field]: action.value } : item;
+        });
+        return {
+          ...state,
+          onboardingForm: { ...state.onboardingForm, experiences: experiences }
+        };
+      }
+      case "onboardingExperience/add":
+        return {
+          ...state,
+          onboardingForm: {
+            ...state.onboardingForm,
+            experiences: state.onboardingForm.experiences.concat({ id: "", companyName: "", jobTitle: "", yearsOfExperience: "", relievingEmailForwarded: false })
+          }
+        };
+      case "onboardingExperience/remove":
+        return {
+          ...state,
+          onboardingForm: {
+            ...state.onboardingForm,
+            experiences: state.onboardingForm.experiences.filter(function (_, index) { return index !== action.index; }).length
+              ? state.onboardingForm.experiences.filter(function (_, index) { return index !== action.index; })
+              : [{ id: "", companyName: "", jobTitle: "", yearsOfExperience: "", relievingEmailForwarded: false }]
+          }
+        };
+      case "deviceTicketForm/reset":
+        return {
+          ...state,
+          deviceTicketForm: {
+            employeeId: state.deviceTicketForm.employeeId,
+            requestType: "Device Issue",
+            deviceType: "Laptop",
+            notificationTo: "devicehelp@company.com",
+            notificationCc: "hr@company.com",
+            subject: "Device encountered an issue",
+            description: "",
+            submitting: false
+          }
+        };
+      case "deviceTicketForm/submitting":
+        return {
+          ...state,
+          deviceTicketForm: {
+            ...state.deviceTicketForm,
+            submitting: Boolean(action.value)
+          }
+        };
+      case "employeeDeviceTickets/loading":
+        return {
+          ...state,
+          employeeDeviceTickets: { ...state.employeeDeviceTickets, employeeId: action.employeeId || state.employeeDeviceTickets.employeeId, loading: true }
+        };
+      case "employeeDeviceTickets/loaded":
+        return {
+          ...state,
+          employeeDeviceTickets: {
+            employeeId: action.employeeId || state.employeeDeviceTickets.employeeId,
+            tickets: action.payload || [],
+            loading: false
+          }
+        };
+      case "hrDeviceTickets/loading":
+        return {
+          ...state,
+          hrDeviceTickets: { ...state.hrDeviceTickets, loading: true }
+        };
+      case "hrDeviceTickets/loaded":
+        return {
+          ...state,
+          hrDeviceTickets: {
+            tickets: action.payload || [],
+            loading: false
           }
         };
       case "projectForm/reset":
@@ -476,6 +626,7 @@
       hrControl: "HR control",
       apply: "My leave",
       onboarding: "My onboarding",
+      deviceManagement: "Device management",
       register: "New employee onboarding",
       projects: "Projects & teams",
       balances: "Bulk uploads",
@@ -515,6 +666,11 @@
         label: roleText,
         title: "Complete onboarding part 2",
         subtitle: "This is the employee side of onboarding for identity details and supporting documents."
+      },
+      deviceManagement: {
+        label: roleText,
+        title: "Manage device requests",
+        subtitle: "Raise your own device support ticket and, for HR, track employee requests from the same workspace."
       },
       register: {
         label: "HR",
@@ -629,11 +785,12 @@
     }
   }
 
-  async function cancelLeaveRequest(requestId, employeeId) {
+  async function cancelLeaveRequest(requestId, employeeId, reason) {
     const payload = await api("/api/leave/" + requestId + "/cancel", {
       method: "POST",
       body: JSON.stringify({
-        employeeId: Number(employeeId)
+        employeeId: Number(employeeId),
+        reason: reason || ""
       })
     });
 
@@ -648,9 +805,7 @@
           panNumber: "",
           aadhaarNumber: "",
           hasPriorExperience: true,
-          previousEmployerName: "",
-          yearsOfExperience: "",
-          relievingEmailForwarded: false,
+          experiences: [{ id: "", companyName: "", jobTitle: "", yearsOfExperience: "", relievingEmailForwarded: false }],
           documents: []
         }
       });
@@ -666,9 +821,17 @@
           panNumber: profile.panNumber,
           aadhaarNumber: profile.aadhaarNumber,
           hasPriorExperience: profile.hasPriorExperience,
-          previousEmployerName: profile.previousEmployerName,
-          yearsOfExperience: profile.yearsOfExperience,
-          relievingEmailForwarded: profile.relievingEmailForwarded,
+          experiences: profile.experiences && profile.experiences.length
+            ? profile.experiences
+            : (profile.previousEmployerName
+                ? [{
+                    id: "",
+                    companyName: profile.previousEmployerName,
+                    jobTitle: "",
+                    yearsOfExperience: profile.yearsOfExperience,
+                    relievingEmailForwarded: profile.relievingEmailForwarded
+                  }]
+                : []),
           documents: payload.documents || []
         }
       });
@@ -695,6 +858,47 @@
 
   function selectedRole(state) {
     return selectedRoleForValue(state.data.roles, state.employeeForm.role);
+  }
+
+  async function loadEmployeeDeviceTickets(employeeId) {
+    if (!employeeId) {
+      store.dispatch({ type: "employeeDeviceTickets/loaded", employeeId: "", payload: [] });
+      return;
+    }
+
+    store.dispatch({ type: "employeeDeviceTickets/loading", employeeId: String(employeeId) });
+    try {
+      const payload = await api("/api/device-tickets/employee/" + employeeId);
+      store.dispatch({
+        type: "employeeDeviceTickets/loaded",
+        employeeId: String(employeeId),
+        payload: payload.tickets || []
+      });
+    } catch (error) {
+      store.dispatch({ type: "message/set", payload: { type: "error", text: error.message } });
+      store.dispatch({ type: "employeeDeviceTickets/loaded", employeeId: String(employeeId), payload: [] });
+    }
+  }
+
+  async function cancelDeviceTicket(ticketId, employeeId, reason) {
+    return api("/api/device-tickets/" + ticketId + "/cancel", {
+      method: "POST",
+      body: JSON.stringify({
+        employeeId: Number(employeeId),
+        reason: reason || ""
+      })
+    });
+  }
+
+  async function loadHrDeviceTickets() {
+    store.dispatch({ type: "hrDeviceTickets/loading" });
+    try {
+      const payload = await api("/api/device-tickets/hr");
+      store.dispatch({ type: "hrDeviceTickets/loaded", payload: payload.tickets || [] });
+    } catch (error) {
+      store.dispatch({ type: "message/set", payload: { type: "error", text: error.message } });
+      store.dispatch({ type: "hrDeviceTickets/loaded", payload: [] });
+    }
   }
 
   function selectedRoleForValue(roles, value) {
@@ -772,6 +976,11 @@
     return new Date(value).toLocaleDateString();
   }
 
+  function formatDateTime(value) {
+    if (!value) return "Not available";
+    return new Date(value).toLocaleString();
+  }
+
   function formatDays(value) {
     const days = Number(value || 0);
     return days + " day" + (days === 1 ? "" : "s");
@@ -780,9 +989,15 @@
   function statusClass(status) {
     const normalized = String(status || "").toLowerCase();
     if (normalized === "approved") return "status-approved";
+    if (normalized === "resolved" || normalized === "closed") return "status-approved";
     if (normalized === "rejected") return "status-rejected";
     if (normalized === "cancelled") return "status-cancelled";
     return "status-pending";
+  }
+
+  function canCancelDeviceTicket(ticket) {
+    const status = String(ticket && ticket.status || "").toLowerCase();
+    return status !== "cancelled" && status !== "resolved" && status !== "closed";
   }
 
   function teamAssignmentSummary(employee) {
@@ -1067,6 +1282,9 @@
           state.activeView === "hrControl" ? h(HrControlPanel, { state: state }) : null,
           state.activeView === "apply" ? h(LeaveHome, { state: state }) : null,
           state.activeView === "onboarding" ? h(EmployeeOnboarding, { state: state }) : null,
+          state.activeView === "deviceManagement" ? h(DeviceManagement, { state: state }) : null,
+          state.activeView === "deviceTickets" ? h(EmployeeDeviceTickets, { state: state }) : null,
+          state.activeView === "hrDeviceTickets" ? h(HrDeviceTicketQueue, { state: state }) : null,
           state.activeView === "register" ? h(HrRegistration, { state: state }) : null,
           state.activeView === "projects" ? h(ProjectBuilder, { state: state }) : null,
           state.activeView === "balances" ? h(HrBulkUploads, { state: state }) : null,
@@ -1241,6 +1459,12 @@
     const myLeaveRequests = employee && state.myLeaves.employeeId === String(employee.id)
       ? state.myLeaves.requests
       : [];
+    const isSubmitting = Boolean(state.leaveForm.submitting);
+    const [cancelDialog, setCancelDialog] = React.useState({
+      request: null,
+      reason: "Plans changed.",
+      submitting: false
+    });
 
     React.useEffect(function () {
       if (employee) {
@@ -1250,6 +1474,10 @@
 
     async function submitLeave(event) {
       event.preventDefault();
+      if (isSubmitting) return;
+
+      store.dispatch({ type: "leaveForm/submitting", value: true });
+
       try {
         await api("/api/leave/apply-leave", {
           method: "POST",
@@ -1269,35 +1497,73 @@
         }
       } catch (error) {
         store.dispatch({ type: "message/set", payload: { type: "error", text: error.message } });
+      } finally {
+        store.dispatch({ type: "leaveForm/submitting", value: false });
       }
     }
 
-    async function cancelRequest(request) {
-      if (!employee) return;
+    function openCancelDialog(request) {
+      setCancelDialog({
+        request: request,
+        reason: "Plans changed.",
+        submitting: false
+      });
+    }
 
-      const confirmed = window.confirm("Cancel this leave request?");
-      if (!confirmed) return;
+    function closeCancelDialog() {
+      if (cancelDialog.submitting) return;
+
+      setCancelDialog({
+        request: null,
+        reason: "Plans changed.",
+        submitting: false
+      });
+    }
+
+    async function cancelRequest(event) {
+      event.preventDefault();
+      if (!employee) return;
+      if (!cancelDialog.request || cancelDialog.submitting) return;
+
+      const reason = cancelDialog.reason.trim();
+      if (!reason) {
+        store.dispatch({ type: "message/set", payload: { type: "error", text: "Please enter a cancellation reason." } });
+        return;
+      }
+
+      setCancelDialog(function (current) {
+        return { ...current, submitting: true };
+      });
 
       try {
-        const payload = await cancelLeaveRequest(request.id, employee.id);
+        const payload = await cancelLeaveRequest(cancelDialog.request.id, employee.id, reason);
         store.dispatch({
           type: "message/set",
           payload: { type: "success", text: payload.message || "Leave request cancelled." }
         });
+        setCancelDialog({
+          request: null,
+          reason: "Plans changed.",
+          submitting: false
+        });
         await Promise.all([loadWorkspace(), loadMyLeaveRequests(employee.id)]);
       } catch (error) {
         store.dispatch({ type: "message/set", payload: { type: "error", text: error.message } });
+        setCancelDialog(function (current) {
+          return { ...current, submitting: false };
+        });
       }
     }
 
-    return h("section", { className: "panel" },
-      h("div", { className: "panel-header" },
-        h("div", null,
-          h("h2", { className: "panel-title" }, "Apply for leave"),
-          h("div", { className: "panel-subtitle" }, "Preview the approver before the request is sent.")
-        )
-      ),
-      h("form", { className: "panel-body", onSubmit: submitLeave },
+    return h(React.Fragment, null,
+      h("section", { className: "panel" },
+        h("div", { className: "panel-header" },
+          h("div", null,
+            h("h2", { className: "panel-title" }, "Apply for leave"),
+            h("div", { className: "panel-subtitle" }, "Preview the approver before the request is sent.")
+          )
+        ),
+        h("form", { className: "panel-body", onSubmit: submitLeave, "aria-busy": isSubmitting ? "true" : "false" },
         h("div", { className: "grid-2" },
           h("div", { className: "full-span" },
             h("div", { className: "identity-card" },
@@ -1313,6 +1579,7 @@
           h(Field, { label: "Leave type" },
             h("select", {
               value: state.leaveForm.leaveTypeId,
+              disabled: isSubmitting,
               onChange: function (event) { store.dispatch({ type: "leaveForm/update", form: "leaveForm", field: "leaveTypeId", value: event.target.value }); }
             }, state.data.leaveTypes.map(function (item) {
               return h("option", { key: item.id, value: item.id }, item.name);
@@ -1322,6 +1589,7 @@
             h("input", {
               type: "date",
               value: state.leaveForm.startDate,
+              disabled: isSubmitting,
               onChange: function (event) {
                 store.dispatch({ type: "leaveForm/update", form: "leaveForm", field: "startDate", value: event.target.value });
               },
@@ -1332,6 +1600,7 @@
             h("input", {
               type: "date",
               value: state.leaveForm.endDate,
+              disabled: isSubmitting,
               onChange: function (event) { store.dispatch({ type: "leaveForm/update", form: "leaveForm", field: "endDate", value: event.target.value }); },
               required: true
             })
@@ -1342,6 +1611,7 @@
                   h("input", {
                     type: "checkbox",
                     checked: Boolean(state.leaveForm.isHalfDay),
+                    disabled: isSubmitting,
                     onChange: function (event) {
                       store.dispatch({ type: "leaveForm/update", form: "leaveForm", field: "isHalfDay", value: event.target.checked });
                     }
@@ -1354,6 +1624,7 @@
             h(Field, { label: "Reason" },
               h("textarea", {
                 value: state.leaveForm.reason,
+                disabled: isSubmitting,
                 onChange: function (event) { store.dispatch({ type: "leaveForm/update", form: "leaveForm", field: "reason", value: event.target.value }); },
                 placeholder: "A short note for the approver",
                 required: true
@@ -1402,8 +1673,20 @@
           : h("div", { className: "upload-summary" },
               h("div", { className: "meta" }, "No leave balance records are attached to this employee yet.")
         ),
+        isSubmitting
+          ? h("div", { className: "submit-progress", role: "status", "aria-live": "polite" },
+              h("div", {
+                className: "submit-progress-bar",
+                role: "progressbar",
+                "aria-label": "Submitting leave request and sending approver email"
+              }),
+              h("span", null, "Submitting leave request and sending approver email...")
+            )
+          : null,
         h("div", { style: { marginTop: "16px" } },
-          h("button", { className: "primary-button", type: "submit" }, "Submit leave request")
+          h("button", { className: "primary-button", type: "submit", disabled: isSubmitting },
+            isSubmitting ? "Sending request..." : "Submit leave request"
+          )
         ),
         h("div", { className: "section-rule" }),
         h("div", { className: "balance-header" },
@@ -1437,9 +1720,12 @@
                       reviewMeta(request.status === "Cancelled" ? "Cancelled" : "Actioned", request.actionedOn ? formatDate(request.actionedOn) : "Not yet")
                     ),
                     h("div", { className: "meta" }, request.reason || "No note"),
+                    request.status === "Cancelled" && request.approvalReason
+                      ? h("div", { className: "meta" }, request.approvalReason)
+                      : null,
                     request.canCancel
                       ? h("div", { className: "review-actions" },
-                          h("button", { className: "danger-button", type: "button", onClick: function () { cancelRequest(request); } }, "Cancel request")
+                          h("button", { className: "danger-button", type: "button", onClick: function () { openCancelDialog(request); } }, "Cancel request")
                         )
                       : null
                   );
@@ -1449,13 +1735,71 @@
                 h("div", { className: "meta" }, "No leave requests submitted yet.")
               )
       )
+      ),
+      cancelDialog.request
+        ? h("div", { className: "modal-backdrop", role: "presentation" },
+            h("section", { className: "modal-panel cancel-dialog", role: "dialog", "aria-modal": "true", "aria-labelledby": "leave-cancel-title" },
+              h("div", { className: "modal-header" },
+                h("div", null,
+                  h("h2", { id: "leave-cancel-title", className: "panel-title" }, "Cancel leave request"),
+                  h("div", { className: "panel-subtitle" }, cancelDialog.request.leaveTypeName + " - " + formatDate(cancelDialog.request.fromDate) + " to " + formatDate(cancelDialog.request.toDate))
+                ),
+                h("button", {
+                  className: "quiet-button",
+                  type: "button",
+                  disabled: cancelDialog.submitting,
+                  onClick: closeCancelDialog
+                }, "Close")
+              ),
+              h("form", { className: "modal-body", onSubmit: cancelRequest, "aria-busy": cancelDialog.submitting ? "true" : "false" },
+                h(Field, { label: "Cancellation reason" },
+                  h("textarea", {
+                    value: cancelDialog.reason,
+                    disabled: cancelDialog.submitting,
+                    onChange: function (event) {
+                      const value = event.target.value;
+                      setCancelDialog(function (current) {
+                        return { ...current, reason: value };
+                      });
+                    },
+                    placeholder: "Tell the approver why this request is being cancelled.",
+                    required: true
+                  })
+                ),
+                cancelDialog.submitting
+                  ? h("div", { className: "submit-progress", role: "status", "aria-live": "polite" },
+                      h("div", {
+                        className: "submit-progress-bar",
+                        role: "progressbar",
+                        "aria-label": "Cancelling leave request"
+                      }),
+                      h("span", null, "Cancelling leave request...")
+                    )
+                  : null,
+                h("div", { className: "modal-actions" },
+                  h("button", {
+                    className: "quiet-button",
+                    type: "button",
+                    disabled: cancelDialog.submitting,
+                    onClick: closeCancelDialog
+                  }, "Keep request"),
+                  h("button", {
+                    className: "danger-button",
+                    type: "submit",
+                    disabled: cancelDialog.submitting
+                  }, cancelDialog.submitting ? "Cancelling..." : "Cancel leave")
+                )
+              )
+            )
+          )
+        : null
     );
   }
 
   function EmployeeOnboarding(props) {
     const state = props.state;
     const employee = currentEmployee(state);
-    const experienceLetterRef = React.useRef(null);
+    const experienceLetterRefs = React.useRef({});
     const salarySlipsRef = React.useRef(null);
     const additionalDocumentsRef = React.useRef(null);
 
@@ -1473,17 +1817,22 @@
       formData.append("panNumber", state.onboardingForm.panNumber);
       formData.append("aadhaarNumber", state.onboardingForm.aadhaarNumber);
       formData.append("hasPriorExperience", String(state.onboardingForm.hasPriorExperience));
-      formData.append("previousEmployerName", state.onboardingForm.previousEmployerName);
-      formData.append("yearsOfExperience", state.onboardingForm.yearsOfExperience || "");
-      formData.append("relievingEmailForwarded", String(state.onboardingForm.relievingEmailForwarded));
+      state.onboardingForm.experiences.forEach(function (experience, index) {
+        formData.append("experiences[" + index + "].id", experience.id || "");
+        formData.append("experiences[" + index + "].companyName", experience.companyName);
+        formData.append("experiences[" + index + "].jobTitle", experience.jobTitle);
+        formData.append("experiences[" + index + "].yearsOfExperience", experience.yearsOfExperience || "");
+        formData.append("experiences[" + index + "].relievingEmailForwarded", String(experience.relievingEmailForwarded));
 
-      const experienceLetter = experienceLetterRef.current && experienceLetterRef.current.files
-        ? experienceLetterRef.current.files[0]
-        : null;
+        const experienceLetterInput = experienceLetterRefs.current[index];
+        const experienceLetter = experienceLetterInput && experienceLetterInput.files
+          ? experienceLetterInput.files[0]
+          : null;
 
-      if (experienceLetter) {
-        formData.append("experienceLetter", experienceLetter);
-      }
+        if (experienceLetter) {
+          formData.append("experiences[" + index + "].experienceLetter", experienceLetter);
+        }
+      });
 
       const salarySlips = salarySlipsRef.current && salarySlipsRef.current.files
         ? Array.from(salarySlipsRef.current.files)
@@ -1516,7 +1865,11 @@
           payload: { type: "success", text: payload.message || "Onboarding profile saved." }
         });
 
-        if (experienceLetterRef.current) experienceLetterRef.current.value = "";
+        Object.keys(experienceLetterRefs.current).forEach(function (key) {
+          if (experienceLetterRefs.current[key]) {
+            experienceLetterRefs.current[key].value = "";
+          }
+        });
         if (salarySlipsRef.current) salarySlipsRef.current.value = "";
         if (additionalDocumentsRef.current) additionalDocumentsRef.current.value = "";
 
@@ -1576,9 +1929,7 @@
                   const hasPriorExperience = !event.target.checked;
                   store.dispatch({ type: "onboardingForm/update", form: "onboardingForm", field: "hasPriorExperience", value: hasPriorExperience });
                   if (!hasPriorExperience) {
-                    store.dispatch({ type: "onboardingForm/update", form: "onboardingForm", field: "previousEmployerName", value: "" });
-                    store.dispatch({ type: "onboardingForm/update", form: "onboardingForm", field: "yearsOfExperience", value: "" });
-                    store.dispatch({ type: "onboardingForm/update", form: "onboardingForm", field: "relievingEmailForwarded", value: false });
+                    store.dispatch({ type: "onboardingForm/update", form: "onboardingForm", field: "experiences", value: [{ id: "", companyName: "", jobTitle: "", yearsOfExperience: "", relievingEmailForwarded: false }] });
                   }
                 }
               }),
@@ -1589,41 +1940,97 @@
         state.onboardingForm.hasPriorExperience
           ? h("div", { className: "onboarding-stack" },
               h("div", { className: "section-rule" }),
+              h("div", { className: "experience-list" },
+                state.onboardingForm.experiences.map(function (experience, index) {
+                  const existingExperienceLetters = state.onboardingForm.documents.filter(function (document) {
+                    return document.documentType === "Experience Letter" &&
+                      String(document.employeeOnboardingExperienceId || "") === String(experience.id || "");
+                  });
+
+                  return h("div", { className: "experience-card", key: experience.id || index },
+                    h("div", { className: "experience-card-head" },
+                      h("strong", null, "Previous company " + (index + 1)),
+                      state.onboardingForm.experiences.length > 1
+                        ? h("button", {
+                            className: "quiet-button compact-action",
+                            type: "button",
+                            onClick: function () { store.dispatch({ type: "onboardingExperience/remove", index: index }); }
+                          }, "Remove")
+                        : null
+                    ),
+                    h("div", { className: "grid-2" },
+                      h(Field, { label: "Company name" },
+                        h("input", {
+                          value: experience.companyName,
+                          onChange: function (event) { store.dispatch({ type: "onboardingExperience/update", index: index, field: "companyName", value: event.target.value }); },
+                          placeholder: "Previous company name"
+                        })
+                      ),
+                      h(Field, { label: "Job title" },
+                        h("input", {
+                          value: experience.jobTitle,
+                          onChange: function (event) { store.dispatch({ type: "onboardingExperience/update", index: index, field: "jobTitle", value: event.target.value }); },
+                          placeholder: "Software Engineer"
+                        })
+                      ),
+                      h(Field, { label: "Years of experience" },
+                        h("input", {
+                          type: "number",
+                          min: "0",
+                          step: "0.1",
+                          value: experience.yearsOfExperience,
+                          onChange: function (event) { store.dispatch({ type: "onboardingExperience/update", index: index, field: "yearsOfExperience", value: event.target.value }); },
+                          placeholder: "3.5"
+                        })
+                      ),
+                      h("div", null,
+                        h("label", { className: "toggle-field" },
+                          h("input", {
+                            type: "checkbox",
+                            checked: experience.relievingEmailForwarded,
+                            onChange: function (event) { store.dispatch({ type: "onboardingExperience/update", index: index, field: "relievingEmailForwarded", value: event.target.checked }); }
+                          }),
+                          h("span", null, "Relieving email forwarded")
+                        )
+                      ),
+                      h(Field, { label: "Experience letter" },
+                        h("input", {
+                          ref: function (input) {
+                            if (input) {
+                              experienceLetterRefs.current[index] = input;
+                            }
+                          },
+                          type: "file",
+                          accept: ".pdf,.png,.jpg,.jpeg,.doc,.docx",
+                          required: !existingExperienceLetters.length
+                        })
+                      )
+                    ),
+                    existingExperienceLetters.length
+                      ? h("div", { className: "document-list" },
+                          existingExperienceLetters.map(function (document) {
+                            return h("a", {
+                              key: document.id,
+                              className: "document-item",
+                              href: "/api/onboarding/documents/" + document.id,
+                              target: "_blank",
+                              rel: "noreferrer"
+                            },
+                              h("strong", null, "Experience letter"),
+                              h("span", null, document.originalFileName)
+                            );
+                          })
+                        )
+                      : null
+                  );
+                }),
+                h("button", {
+                  className: "quiet-button",
+                  type: "button",
+                  onClick: function () { store.dispatch({ type: "onboardingExperience/add" }); }
+                }, "Add another company")
+              ),
               h("div", { className: "grid-2" },
-                h(Field, { label: "Previous employer" },
-                  h("input", {
-                    value: state.onboardingForm.previousEmployerName,
-                    onChange: function (event) { store.dispatch({ type: "onboardingForm/update", form: "onboardingForm", field: "previousEmployerName", value: event.target.value }); },
-                    placeholder: "Previous company name"
-                  })
-                ),
-                h(Field, { label: "Years of experience" },
-                  h("input", {
-                    type: "number",
-                    min: "0",
-                    step: "0.1",
-                    value: state.onboardingForm.yearsOfExperience,
-                    onChange: function (event) { store.dispatch({ type: "onboardingForm/update", form: "onboardingForm", field: "yearsOfExperience", value: event.target.value }); },
-                    placeholder: "3.5"
-                  })
-                ),
-                h("div", { className: "full-span" },
-                  h("label", { className: "toggle-field" },
-                    h("input", {
-                      type: "checkbox",
-                      checked: state.onboardingForm.relievingEmailForwarded,
-                      onChange: function (event) { store.dispatch({ type: "onboardingForm/update", form: "onboardingForm", field: "relievingEmailForwarded", value: event.target.checked }); }
-                    }),
-                    h("span", null, "Relieving email has been forwarded to HR")
-                  )
-                ),
-                h(Field, { label: "Experience letter" },
-                  h("input", {
-                    ref: experienceLetterRef,
-                    type: "file",
-                    accept: ".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                  })
-                ),
                 h(Field, { label: "Previous salary slips" },
                   h("input", {
                     ref: salarySlipsRef,
@@ -1659,7 +2066,9 @@
                       target: "_blank",
                       rel: "noreferrer"
                     },
-                      h("strong", null, document.documentType),
+                      h("strong", null, document.experienceCompanyName
+                        ? document.documentType + " - " + document.experienceCompanyName
+                        : document.documentType),
                       h("span", null, document.originalFileName)
                     );
                   })
@@ -1674,10 +2083,389 @@
     );
   }
 
+  function DeviceManagement(props) {
+    const state = props.state;
+    const canManageQueue = state.currentUser && isHrRole(state.currentUser.role);
+    const [activeTab, setActiveTab] = React.useState(canManageQueue ? "queue" : "my");
+
+    React.useEffect(function () {
+      if (!canManageQueue && activeTab !== "my") {
+        setActiveTab("my");
+      }
+    }, [canManageQueue, activeTab]);
+
+    if (!canManageQueue) {
+      return h(EmployeeDeviceTickets, { state: state });
+    }
+
+    return h("section", { className: "workspace-stack" },
+      h("section", { className: "panel device-management-nav" },
+        h("div", { className: "panel-body device-management-tabs" },
+          h("button", {
+            className: activeTab === "queue" ? "active" : "",
+            type: "button",
+            onClick: function () { setActiveTab("queue"); }
+          }, "HR queue"),
+          h("button", {
+            className: activeTab === "my" ? "active" : "",
+            type: "button",
+            onClick: function () { setActiveTab("my"); }
+          }, "My request")
+        )
+      ),
+      activeTab === "queue"
+        ? h(HrDeviceTicketQueue, { state: state })
+        : h(EmployeeDeviceTickets, { state: state })
+    );
+  }
+
+  function EmployeeDeviceTickets(props) {
+    const state = props.state;
+    const employee = currentEmployee(state);
+    const isSubmitting = Boolean(state.deviceTicketForm.submitting);
+
+    React.useEffect(function () {
+      if (state.deviceTicketForm.employeeId) {
+        loadEmployeeDeviceTickets(state.deviceTicketForm.employeeId);
+      }
+    }, [state.deviceTicketForm.employeeId]);
+
+    async function submitTicket(event) {
+      event.preventDefault();
+      if (isSubmitting) return;
+
+      const employeeId = state.deviceTicketForm.employeeId;
+      store.dispatch({ type: "deviceTicketForm/submitting", value: true });
+
+      try {
+        const payload = await api("/api/device-tickets", {
+          method: "POST",
+          body: JSON.stringify({
+            employeeId: Number(employeeId),
+            requestType: state.deviceTicketForm.requestType,
+            deviceType: state.deviceTicketForm.deviceType,
+            subject: state.deviceTicketForm.subject,
+            description: state.deviceTicketForm.description
+          })
+        });
+
+        store.dispatch({
+          type: "message/set",
+          payload: { type: "success", text: payload.message || "Device ticket generated." }
+        });
+        store.dispatch({ type: "deviceTicketForm/reset" });
+        await loadEmployeeDeviceTickets(employeeId);
+      } catch (error) {
+        store.dispatch({ type: "message/set", payload: { type: "error", text: error.message } });
+      } finally {
+        store.dispatch({ type: "deviceTicketForm/submitting", value: false });
+      }
+    }
+
+    return h("section", { className: "workspace-stack" },
+      h("section", { className: "panel" },
+        h("div", { className: "panel-header" },
+          h("div", null,
+            h("h2", { className: "panel-title" }, "Device support ticket"),
+            h("div", { className: "panel-subtitle" }, "Send device issue or replacement requests to HR and keep the timeline visible.")
+          )
+        ),
+        h("form", { className: "panel-body", onSubmit: submitTicket, "aria-busy": isSubmitting ? "true" : "false" },
+          h("div", { className: "grid-2" },
+            h("div", { className: "full-span" },
+              h("div", { className: "identity-card" },
+                h("div", { className: "meta" }, "Request owner"),
+                h("h3", null, employee ? employee.fullName : "Signed-in employee"),
+                h("div", { className: "tag-row" },
+                  employee ? h("span", { className: "tag" }, employee.employeeCode) : null,
+                  employee ? h("span", { className: "tag" }, employee.email) : null,
+                  employee ? h("span", { className: "tag" }, employee.department) : null
+                )
+              )
+            ),
+            h(Field, { label: "Request type" },
+              h("select", {
+                value: state.deviceTicketForm.requestType,
+                disabled: isSubmitting,
+                onChange: function (event) { store.dispatch({ type: "deviceTicketForm/update", form: "deviceTicketForm", field: "requestType", value: event.target.value }); }
+              }, [
+                h("option", { key: "issue", value: "Device Issue" }, "Device issue"),
+                h("option", { key: "replacement", value: "Device Replacement" }, "Device replacement")
+              ])
+            ),
+            h(Field, { label: "Device type" },
+              h("select", {
+                value: state.deviceTicketForm.deviceType,
+                disabled: isSubmitting,
+                onChange: function (event) { store.dispatch({ type: "deviceTicketForm/update", form: "deviceTicketForm", field: "deviceType", value: event.target.value }); }
+              }, [
+                h("option", { key: "laptop", value: "Laptop" }, "Laptop"),
+                h("option", { key: "desktop", value: "Desktop" }, "Desktop"),
+                h("option", { key: "mobile", value: "Mobile" }, "Mobile"),
+                h("option", { key: "accessory", value: "Accessory" }, "Accessory"),
+                h("option", { key: "other", value: "Other" }, "Other")
+              ])
+            ),
+            h(Field, { label: "Subject" },
+              h("input", {
+                value: state.deviceTicketForm.subject,
+                onChange: function (event) { store.dispatch({ type: "deviceTicketForm/update", form: "deviceTicketForm", field: "subject", value: event.target.value }); },
+                placeholder: "Laptop battery issue",
+                disabled: isSubmitting,
+                required: true
+              })
+            ),
+            h("div", { className: "full-span" },
+              h(Field, { label: "Details" },
+                h("textarea", {
+                  value: state.deviceTicketForm.description,
+                  onChange: function (event) { store.dispatch({ type: "deviceTicketForm/update", form: "deviceTicketForm", field: "description", value: event.target.value }); },
+                  placeholder: "Describe the issue, asset details, urgency, and replacement need.",
+                  disabled: isSubmitting,
+                  required: true
+                })
+              )
+            )
+          ),
+          h("div", { className: "ticket-route" },
+            ["Submitted", "HR Review", "Coordination", "Resolved"].map(function (step) {
+              return h("span", { key: step, className: "route-step" }, step);
+            })
+          ),
+          isSubmitting
+            ? h("div", { className: "submit-progress", role: "status", "aria-live": "polite" },
+                h("div", {
+                  className: "submit-progress-bar",
+                  role: "progressbar",
+                  "aria-label": "Generating ticket and sending HR email"
+                }),
+                h("span", null, "Generating ticket and sending HR email...")
+              )
+            : null,
+          h("div", { style: { marginTop: "16px" } },
+            h("button", { className: "primary-button", type: "submit", disabled: isSubmitting },
+              isSubmitting ? "Sending to HR..." : "Generate ticket"
+            )
+          )
+        )
+      ),
+      h(DeviceTicketList, {
+        title: "My device tickets",
+        tickets: state.employeeDeviceTickets.tickets,
+        loading: state.employeeDeviceTickets.loading,
+        onCancelled: isHrRole(state.currentUser && state.currentUser.role) ? loadHrDeviceTickets : null
+      })
+    );
+  }
+
+  function HrDeviceTicketQueue(props) {
+    const state = props.state;
+    const hrEmployees = state.data.employees.filter(function (employee) { return isHrRole(employee.role); });
+    const [updates, setUpdates] = React.useState({});
+
+    React.useEffect(function () {
+      loadHrDeviceTickets();
+    }, []);
+
+    function updateDraft(ticketId, field, value) {
+      setUpdates(function (current) {
+        return {
+          ...current,
+          [ticketId]: {
+            status: "Coordination",
+            notes: "",
+            assignedHrId: state.currentUser ? String(state.currentUser.employeeId) : "",
+            ...(current[ticketId] || {}),
+            [field]: value
+          }
+        };
+      });
+    }
+
+    async function submitTimeline(ticket) {
+      const draft = updates[ticket.id] || {};
+      try {
+        const payload = await api("/api/device-tickets/" + ticket.id + "/timeline", {
+          method: "POST",
+          body: JSON.stringify({
+            status: draft.status || "Coordination",
+            notes: draft.notes || "",
+            assignedHrId: draft.assignedHrId ? Number(draft.assignedHrId) : null
+          })
+        });
+        store.dispatch({ type: "message/set", payload: { type: "success", text: payload.message || "Ticket updated." } });
+        setUpdates(function (current) {
+          const next = { ...current };
+          delete next[ticket.id];
+          return next;
+        });
+        await loadHrDeviceTickets();
+      } catch (error) {
+        store.dispatch({ type: "message/set", payload: { type: "error", text: error.message } });
+      }
+    }
+
+    return h("section", { className: "panel" },
+      h("div", { className: "panel-header" },
+        h("div", null,
+          h("h2", { className: "panel-title" }, "HR device request queue"),
+          h("div", { className: "panel-subtitle" }, "Tickets are unassigned when generated, so any active HR member can pick up and update the timeline.")
+        ),
+        h("button", { className: "quiet-button", type: "button", onClick: loadHrDeviceTickets }, "Refresh")
+      ),
+      h("div", { className: "panel-body ticket-list" },
+        state.hrDeviceTickets.loading
+          ? h("div", { className: "meta" }, "Loading device tickets...")
+          : state.hrDeviceTickets.tickets.length
+            ? state.hrDeviceTickets.tickets.map(function (ticket) {
+                const draft = updates[ticket.id] || {};
+                return h("article", { className: "review-card", key: ticket.id },
+                  h("div", { className: "review-card-head" },
+                    h("div", null,
+                      h("div", { className: "meta" }, "Ticket #" + ticket.id + " - " + ticket.employeeName + " (" + ticket.employeeCode + ")"),
+                      h("h3", null, ticket.subject),
+                      h("div", { className: "tag-row" },
+                        h("span", { className: "tag" }, ticket.requestType),
+                        h("span", { className: "tag" }, ticket.deviceType),
+                        h("span", { className: "tag " + statusClass(ticket.status) }, ticket.status)
+                      )
+                    ),
+                    h("div", { className: "meta" }, formatDateTime(ticket.createdOn))
+                  ),
+                  h("p", null, ticket.description),
+                  h(DeviceTicketTimeline, { ticket: ticket }),
+                  h("div", { className: "grid-2 ticket-update-grid" },
+                    h(Field, { label: "Owner" },
+                      h("select", {
+                        value: draft.assignedHrId || ticket.assignedHrId || (state.currentUser ? String(state.currentUser.employeeId) : ""),
+                        onChange: function (event) { updateDraft(ticket.id, "assignedHrId", event.target.value); }
+                      }, hrEmployees.map(function (employee) {
+                        return h("option", { key: employee.id, value: employee.id }, employee.fullName);
+                      }))
+                    ),
+                    h(Field, { label: "Status" },
+                      h("select", {
+                        value: draft.status || ticket.status || "Coordination",
+                        onChange: function (event) { updateDraft(ticket.id, "status", event.target.value); }
+                      }, ["HR Review", "Coordination", "Waiting on Employee", "Replacement Approved", "Resolved", "Closed"].map(function (status) {
+                        return h("option", { key: status, value: status }, status);
+                      }))
+                    ),
+                    h("div", { className: "full-span" },
+                      h(Field, { label: "Timeline note" },
+                        h("textarea", {
+                          value: draft.notes || "",
+                          onChange: function (event) { updateDraft(ticket.id, "notes", event.target.value); },
+                          placeholder: "Share what happens next for the employee."
+                        })
+                      )
+                    )
+                  ),
+                  h("div", { className: "review-actions" },
+                    h("button", {
+                      className: "primary-button",
+                      type: "button",
+                      onClick: function () { submitTimeline(ticket); }
+                    }, "Share update")
+                  )
+                );
+              })
+            : h("div", { className: "upload-summary" },
+                h("div", { className: "meta" }, "No device tickets have been generated yet.")
+              )
+      )
+    );
+  }
+
+  function DeviceTicketList(props) {
+    async function cancelTicket(ticket) {
+      const reason = window.prompt("Why are you cancelling this device request?", "Device is working smoothly now.");
+      if (reason === null) {
+        return;
+      }
+
+      try {
+        const payload = await cancelDeviceTicket(ticket.id, ticket.employeeId, reason);
+        store.dispatch({
+          type: "message/set",
+          payload: { type: "success", text: payload.message || "Device ticket cancelled." }
+        });
+
+        await loadEmployeeDeviceTickets(ticket.employeeId);
+        if (props.onCancelled) {
+          await props.onCancelled();
+        }
+      } catch (error) {
+        store.dispatch({ type: "message/set", payload: { type: "error", text: error.message } });
+      }
+    }
+
+    return h("section", { className: "panel" },
+      h("div", { className: "panel-header" },
+        h("div", null,
+          h("h2", { className: "panel-title" }, props.title),
+          h("div", { className: "panel-subtitle" }, "Timeline updates show how the request navigates through HR review, coordination, and closure.")
+        )
+      ),
+      h("div", { className: "panel-body ticket-list" },
+        props.loading
+          ? h("div", { className: "meta" }, "Loading device tickets...")
+          : props.tickets && props.tickets.length
+            ? props.tickets.map(function (ticket) {
+                return h("article", { className: "review-card", key: ticket.id },
+                  h("div", { className: "review-card-head" },
+                    h("div", null,
+                      h("div", { className: "meta" }, "Ticket #" + ticket.id + " - " + formatDateTime(ticket.createdOn)),
+                      h("h3", null, ticket.subject),
+                      h("div", { className: "tag-row" },
+                        h("span", { className: "tag" }, ticket.requestType),
+                        h("span", { className: "tag" }, ticket.deviceType),
+                        h("span", { className: "tag " + statusClass(ticket.status) }, ticket.status)
+                      )
+                    ),
+                    h("div", { className: "meta" }, ticket.assignedHrName ? "HR: " + ticket.assignedHrName : "HR owner pending")
+                  ),
+                  h("p", null, ticket.description),
+                  h(DeviceTicketTimeline, { ticket: ticket }),
+                  canCancelDeviceTicket(ticket)
+                    ? h("div", { className: "review-actions" },
+                        h("button", {
+                          className: "danger-button",
+                          type: "button",
+                          onClick: function () { cancelTicket(ticket); }
+                        }, "Cancel request")
+                      )
+                    : null
+                );
+              })
+            : h("div", { className: "upload-summary" },
+                h("div", { className: "meta" }, "No device tickets generated yet.")
+              )
+      )
+    );
+  }
+
+  function DeviceTicketTimeline(props) {
+    const events = props.ticket.timeline || [];
+    return h("ol", { className: "ticket-timeline" },
+      events.map(function (event) {
+        return h("li", { key: event.id },
+          h("div", { className: "timeline-marker" }),
+          h("div", null,
+            h("strong", null, event.status),
+            h("p", null, event.notes),
+            h("span", { className: "meta" }, formatDateTime(event.createdOn))
+          )
+        );
+      })
+    );
+  }
+
   function HrRegistration(props) {
     const state = props.state;
     const teams = allTeams(state.data.projects);
     const approver = approverForRegistration(state);
+    const isSubmitting = Boolean(state.employeeForm.submitting);
     const selectedProjects = Array.from(new Set(
       teams
         .filter(function (team) { return state.employeeForm.teamIds.includes(String(team.id)); })
@@ -1686,6 +2474,10 @@
 
     async function submitEmployee(event) {
       event.preventDefault();
+      if (isSubmitting) return;
+
+      store.dispatch({ type: "employeeForm/submitting", value: true });
+
       try {
         const payload = await api("/api/workspace/employees", {
           method: "POST",
@@ -1717,6 +2509,8 @@
         await loadWorkspace();
       } catch (error) {
         store.dispatch({ type: "message/set", payload: { type: "error", text: error.message } });
+      } finally {
+        store.dispatch({ type: "employeeForm/submitting", value: false });
       }
     }
 
@@ -1727,11 +2521,12 @@
           h("div", { className: "panel-subtitle" }, "This is the HR-owned onboarding stage for official company details, allocations, and system setup.")
         )
       ),
-      h("form", { className: "panel-body", onSubmit: submitEmployee },
+      h("form", { className: "panel-body", onSubmit: submitEmployee, "aria-busy": isSubmitting ? "true" : "false" },
         h("div", { className: "grid-2" },
           h(Field, { label: "Empcode" },
             h("input", {
               value: state.employeeForm.employeeCode,
+              disabled: isSubmitting,
               onChange: function (event) { store.dispatch({ type: "employeeForm/update", form: "employeeForm", field: "employeeCode", value: event.target.value }); },
               placeholder: "EMP010",
               required: true
@@ -1740,6 +2535,7 @@
           h(Field, { label: "Full name" },
             h("input", {
               value: state.employeeForm.fullName,
+              disabled: isSubmitting,
               onChange: function (event) { store.dispatch({ type: "employeeForm/update", form: "employeeForm", field: "fullName", value: event.target.value }); },
               placeholder: "Ananya Mehta",
               required: true
@@ -1749,6 +2545,7 @@
             h("input", {
               type: "email",
               value: state.employeeForm.email,
+              disabled: isSubmitting,
               onChange: function (event) { store.dispatch({ type: "employeeForm/update", form: "employeeForm", field: "email", value: event.target.value }); },
               placeholder: "ananya@company.com",
               required: true
@@ -1757,6 +2554,7 @@
           h(Field, { label: "Department" },
             h("input", {
               value: state.employeeForm.department,
+              disabled: isSubmitting,
               onChange: function (event) { store.dispatch({ type: "employeeForm/update", form: "employeeForm", field: "department", value: event.target.value }); },
               placeholder: "Engineering",
               required: true
@@ -1765,6 +2563,7 @@
           h(Field, { label: "Designation" },
             h("input", {
               value: state.employeeForm.designation,
+              disabled: isSubmitting,
               onChange: function (event) { store.dispatch({ type: "employeeForm/update", form: "employeeForm", field: "designation", value: event.target.value }); },
               placeholder: "Senior Analyst",
               required: true
@@ -1773,6 +2572,7 @@
           h(Field, { label: "Role" },
             h("input", {
               value: state.employeeForm.jobRole,
+              disabled: isSubmitting,
               onChange: function (event) { store.dispatch({ type: "employeeForm/update", form: "employeeForm", field: "jobRole", value: event.target.value }); },
               placeholder: ".NET Developer",
               required: true
@@ -1782,6 +2582,7 @@
             h("input", {
               type: "date",
               value: state.employeeForm.joinDate,
+              disabled: isSubmitting,
               onChange: function (event) { store.dispatch({ type: "employeeForm/update", form: "employeeForm", field: "joinDate", value: event.target.value }); },
               required: true
             })
@@ -1789,6 +2590,7 @@
           h(Field, { label: "Employment type" },
             h("select", {
               value: state.employeeForm.employmentType,
+              disabled: isSubmitting,
               onChange: function (event) { store.dispatch({ type: "employeeForm/update", form: "employeeForm", field: "employmentType", value: event.target.value }); }
             }, [
               h("option", { key: "full-time", value: "Full-time" }, "Full-time"),
@@ -1800,6 +2602,7 @@
           h(Field, { label: "Location" },
             h("input", {
               value: state.employeeForm.location,
+              disabled: isSubmitting,
               onChange: function (event) { store.dispatch({ type: "employeeForm/update", form: "employeeForm", field: "location", value: event.target.value }); },
               placeholder: "Bengaluru",
               required: true
@@ -1808,6 +2611,7 @@
           h(Field, { label: "System access" },
             h("select", {
               value: state.employeeForm.role,
+              disabled: isSubmitting,
               onChange: function (event) { store.dispatch({ type: "employeeForm/update", form: "employeeForm", field: "role", value: event.target.value }); }
             }, state.data.roles.map(function (role) {
               return h("option", { key: role.id, value: role.id }, cleanRoleLabel(role.label || role.name));
@@ -1817,6 +2621,7 @@
             h(Field, { label: "Salary structure details" },
               h("textarea", {
                 value: state.employeeForm.salaryStructureDetails,
+                disabled: isSubmitting,
                 onChange: function (event) { store.dispatch({ type: "employeeForm/update", form: "employeeForm", field: "salaryStructureDetails", value: event.target.value }); },
                 placeholder: "CTC 9.5 LPA | Fixed 8.1 LPA | Variable 1.4 LPA",
                 required: true
@@ -1827,6 +2632,7 @@
             h(Field, { label: "Primary team" },
               h("select", {
                 value: state.employeeForm.primaryTeamId,
+                disabled: isSubmitting,
                 onChange: function (event) {
                   const teamId = event.target.value;
                   store.dispatch({ type: "employeeForm/update", form: "employeeForm", field: "primaryTeamId", value: teamId });
@@ -1866,6 +2672,7 @@
               h("input", {
                 type: "checkbox",
                 checked: state.employeeForm.teamIds.includes(String(team.id)),
+                disabled: isSubmitting,
                 onChange: function () { store.dispatch({ type: "employeeForm/toggleTeam", teamId: String(team.id) }); }
               }),
               "Attach team",
@@ -1874,8 +2681,20 @@
             );
           })
         ),
+        isSubmitting
+          ? h("div", { className: "submit-progress", role: "status", "aria-live": "polite" },
+              h("div", {
+                className: "submit-progress-bar",
+                role: "progressbar",
+                "aria-label": "Completing onboarding and sending invite email"
+              }),
+              h("span", null, "Completing onboarding and sending invite email...")
+            )
+          : null,
         h("div", { style: { marginTop: "16px" } },
-          h("button", { className: "primary-button", type: "submit" }, "Complete HR onboarding")
+          h("button", { className: "primary-button", type: "submit", disabled: isSubmitting },
+            isSubmitting ? "Sending invite..." : "Complete HR onboarding"
+          )
         )
       )
     );
@@ -2352,6 +3171,7 @@
   function ReviewerInbox(props) {
     const state = props.state;
     const reviewer = currentEmployee(state);
+    const [decisionInFlight, setDecisionInFlight] = React.useState(null);
 
     React.useEffect(function () {
       if (state.reviewer.reviewerId) {
@@ -2360,6 +3180,10 @@
     }, [state.reviewer.reviewerId]);
 
     async function decide(requestId, action) {
+      if (decisionInFlight) return;
+
+      setDecisionInFlight(requestId);
+
       try {
         await api("/api/leave/reviewer/decision", {
           method: "POST",
@@ -2376,6 +3200,8 @@
         await Promise.all([loadReviewerRequests(state.reviewer.reviewerId), loadWorkspace()]);
       } catch (error) {
         store.dispatch({ type: "message/set", payload: { type: "error", text: error.message } });
+      } finally {
+        setDecisionInFlight(null);
       }
     }
 
@@ -2424,9 +3250,29 @@
                     reviewMeta("Applied", formatDate(request.appliedOn)),
                     reviewMeta("Reason", request.reason || "No note")
                   ),
+                  decisionInFlight === request.id
+                    ? h("div", { className: "submit-progress", role: "status", "aria-live": "polite" },
+                        h("div", {
+                          className: "submit-progress-bar",
+                          role: "progressbar",
+                          "aria-label": "Saving decision and sending employee email"
+                        }),
+                        h("span", null, "Saving decision and sending employee email...")
+                      )
+                    : null,
                   h("div", { className: "review-actions" },
-                    h("button", { className: "primary-button", type: "button", onClick: function () { decide(request.id, "approve"); } }, "Approve"),
-                    h("button", { className: "danger-button", type: "button", onClick: function () { decide(request.id, "reject"); } }, "Reject")
+                    h("button", {
+                      className: "primary-button",
+                      type: "button",
+                      disabled: Boolean(decisionInFlight),
+                      onClick: function () { decide(request.id, "approve"); }
+                    }, decisionInFlight === request.id ? "Sending..." : "Approve"),
+                    h("button", {
+                      className: "danger-button",
+                      type: "button",
+                      disabled: Boolean(decisionInFlight),
+                      onClick: function () { decide(request.id, "reject"); }
+                    }, decisionInFlight === request.id ? "Sending..." : "Reject")
                   )
                 );
               })
@@ -2462,7 +3308,10 @@
                     reviewMeta("Applied", formatDate(request.appliedOn)),
                     reviewMeta(request.status === "Cancelled" ? "Cancelled" : "Actioned", formatDate(request.actionedOn || request.approvedOn || request.rejectedOn))
                   ),
-                  h("div", { className: "meta" }, request.reason || "No note")
+                  h("div", { className: "meta" }, request.reason || "No note"),
+                  request.approvalReason
+                    ? h("div", { className: "meta" }, request.approvalReason)
+                    : null
                 );
               })
             )
