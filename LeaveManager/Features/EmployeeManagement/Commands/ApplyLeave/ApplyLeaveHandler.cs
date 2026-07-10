@@ -162,7 +162,8 @@ public class ApplyLeaveHandler
                     await _emailService.SendEmailAsync(
                         approver.Email,
                         "New Leave Request - Action Required",
-                        GenerateLeaveRequestEmailBody(employee, approver, leaveType, request, days, approvalToken, appBaseUrl));
+                        GenerateLeaveRequestEmailBody(employee, approver, leaveType, request, days, approvalToken, appBaseUrl),
+                        cancellationToken: cancellationToken);
                 }
                 catch (Exception emailEx)
                 {

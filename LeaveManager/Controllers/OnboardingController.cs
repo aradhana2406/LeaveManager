@@ -39,6 +39,7 @@ public class OnboardingController : ControllerBase
 
         var profile = await _context.EmployeeOnboardingProfiles
             .AsNoTracking()
+            .Include(x => x.Experiences)
             .FirstOrDefaultAsync(x => x.EmployeeId == employeeId, cancellationToken);
 
         var documents = await _context.EmployeeOnboardingDocuments
@@ -49,6 +50,10 @@ public class OnboardingController : ControllerBase
             {
                 x.Id,
                 x.DocumentType,
+                x.EmployeeOnboardingExperienceId,
+                ExperienceCompanyName = x.EmployeeOnboardingExperience == null
+                    ? null
+                    : x.EmployeeOnboardingExperience.CompanyName,
                 x.OriginalFileName,
                 x.UploadedOn
             })
@@ -80,6 +85,17 @@ public class OnboardingController : ControllerBase
                     profile.PreviousEmployerName,
                     profile.YearsOfExperience,
                     profile.RelievingEmailForwarded,
+                    Experiences = profile.Experiences
+                        .OrderBy(x => x.Id)
+                        .Select(x => new
+                        {
+                            x.Id,
+                            x.CompanyName,
+                            x.JobTitle,
+                            x.YearsOfExperience,
+                            x.RelievingEmailForwarded
+                        })
+                        .ToList(),
                     profile.LastUpdatedOn
                 },
             Documents = documents
@@ -118,15 +134,59 @@ public class OnboardingController : ControllerBase
             return BadRequest(new { Message = "Aadhaar number is required." });
         }
 
-        if (request.HasPriorExperience &&
-            request.SalarySlips.Count == 0 &&
-            request.ExperienceLetter == null)
+        var experienceRows = request.Experiences
+            .Where(x => !string.IsNullOrWhiteSpace(x.CompanyName))
+            .Select(x => new SaveEmployeeOnboardingExperienceRequest
+            {
+                Id = x.Id,
+                CompanyName = x.CompanyName.Trim(),
+                JobTitle = x.JobTitle?.Trim(),
+                YearsOfExperience = x.YearsOfExperience,
+                RelievingEmailForwarded = x.RelievingEmailForwarded,
+                ExperienceLetter = x.ExperienceLetter
+            })
+            .ToList();
+
+        if (request.HasPriorExperience && experienceRows.Count == 0)
         {
-            return BadRequest(new { Message = "Upload at least one prior-experience document." });
+            return BadRequest(new { Message = "Add at least one previous company." });
         }
 
         var profile = await _context.EmployeeOnboardingProfiles
+            .Include(x => x.Experiences)
             .FirstOrDefaultAsync(x => x.EmployeeId == request.EmployeeId, cancellationToken);
+
+        var existingExperienceIds = profile == null
+            ? new HashSet<int>()
+            : profile.Experiences.Select(x => x.Id).ToHashSet();
+
+        var existingLetterExperienceIds = await _context.EmployeeOnboardingDocuments
+            .AsNoTracking()
+            .Where(x => x.EmployeeId == request.EmployeeId &&
+                        x.DocumentType == ExperienceLetterDocumentType &&
+                        x.EmployeeOnboardingExperienceId.HasValue)
+            .Select(x => x.EmployeeOnboardingExperienceId!.Value)
+            .ToListAsync(cancellationToken);
+
+        if (request.HasPriorExperience)
+        {
+            var missingLetterCompanies = experienceRows
+                .Where(x => x.ExperienceLetter == null &&
+                            (x.Id <= 0 ||
+                             !existingExperienceIds.Contains(x.Id) ||
+                             !existingLetterExperienceIds.Contains(x.Id)))
+                .Select(x => x.CompanyName)
+                .ToList();
+
+            if (missingLetterCompanies.Count > 0)
+            {
+                return BadRequest(new
+                {
+                    Message = "Upload an experience letter for each previous company: " +
+                              string.Join(", ", missingLetterCompanies) + "."
+                });
+            }
+        }
 
         if (profile == null)
         {
@@ -142,13 +202,55 @@ public class OnboardingController : ControllerBase
         profile.AadhaarNumber = aadhaarNumber;
         profile.HasPriorExperience = request.HasPriorExperience;
         profile.PreviousEmployerName = request.HasPriorExperience
-            ? request.PreviousEmployerName?.Trim()
+            ? experienceRows.FirstOrDefault()?.CompanyName ?? request.PreviousEmployerName?.Trim()
             : null;
         profile.YearsOfExperience = request.HasPriorExperience
-            ? request.YearsOfExperience
+            ? experienceRows.Sum(x => x.YearsOfExperience ?? 0m)
             : null;
-        profile.RelievingEmailForwarded = request.HasPriorExperience && request.RelievingEmailForwarded;
+        profile.RelievingEmailForwarded = request.HasPriorExperience && experienceRows.Any(x => x.RelievingEmailForwarded);
         profile.LastUpdatedOn = DateTime.UtcNow;
+
+        var incomingExperienceIds = experienceRows
+            .Where(x => x.Id > 0)
+            .Select(x => x.Id)
+            .ToHashSet();
+        var removedExperiences = profile.Experiences
+            .Where(x => !incomingExperienceIds.Contains(x.Id))
+            .ToList();
+        _context.EmployeeOnboardingExperiences.RemoveRange(removedExperiences);
+
+        var savedExperiences = new List<(SaveEmployeeOnboardingExperienceRequest Request, EmployeeOnboardingExperience Entity)>();
+        foreach (var experience in experienceRows)
+        {
+            var experienceEntity = experience.Id > 0
+                ? profile.Experiences.FirstOrDefault(x => x.Id == experience.Id)
+                : null;
+
+            if (experienceEntity == null)
+            {
+                experienceEntity = new EmployeeOnboardingExperience();
+                profile.Experiences.Add(experienceEntity);
+            }
+
+            experienceEntity.CompanyName = experience.CompanyName;
+            experienceEntity.JobTitle = experience.JobTitle;
+            experienceEntity.YearsOfExperience = experience.YearsOfExperience;
+            experienceEntity.RelievingEmailForwarded = experience.RelievingEmailForwarded;
+
+            savedExperiences.Add((experience, experienceEntity));
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        foreach (var savedExperience in savedExperiences)
+        {
+            await SaveDocumentsAsync(
+                request.EmployeeId,
+                savedExperience.Request.ExperienceLetter,
+                ExperienceLetterDocumentType,
+                cancellationToken,
+                savedExperience.Entity.Id);
+        }
 
         await SaveDocumentsAsync(request.EmployeeId, request.ExperienceLetter, ExperienceLetterDocumentType, cancellationToken);
 
@@ -193,7 +295,8 @@ public class OnboardingController : ControllerBase
         int employeeId,
         IFormFile? file,
         string documentType,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int? employeeOnboardingExperienceId = null)
     {
         if (file == null || file.Length == 0)
         {
@@ -204,6 +307,7 @@ public class OnboardingController : ControllerBase
         await _context.EmployeeOnboardingDocuments.AddAsync(new EmployeeOnboardingDocument
         {
             EmployeeId = employeeId,
+            EmployeeOnboardingExperienceId = employeeOnboardingExperienceId,
             DocumentType = documentType,
             OriginalFileName = Path.GetFileName(file.FileName),
             StoredFileName = stored.StoredFileName,
@@ -235,4 +339,21 @@ public class SaveEmployeeOnboardingRequest
     public List<IFormFile> SalarySlips { get; set; } = new();
 
     public List<IFormFile> AdditionalDocuments { get; set; } = new();
+
+    public List<SaveEmployeeOnboardingExperienceRequest> Experiences { get; set; } = new();
+}
+
+public class SaveEmployeeOnboardingExperienceRequest
+{
+    public int Id { get; set; }
+
+    public string CompanyName { get; set; } = string.Empty;
+
+    public string? JobTitle { get; set; }
+
+    public decimal? YearsOfExperience { get; set; }
+
+    public bool RelievingEmailForwarded { get; set; }
+
+    public IFormFile? ExperienceLetter { get; set; }
 }

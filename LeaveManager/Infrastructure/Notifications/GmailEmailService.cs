@@ -12,9 +12,14 @@ public class GmailEmailService : IEmailService
         _config = config;
     }
 
-    public async Task SendEmailAsync(string to, string subject, string body)
+    public async Task SendEmailAsync(
+        string to,
+        string subject,
+        string body,
+        string? cc = null,
+        CancellationToken cancellationToken = default)
     {
-        var smtpClient = new SmtpClient(_config["Smtp:Host"])
+        using var smtpClient = new SmtpClient(_config["Smtp:Host"])
         {
             Port = int.Parse(_config["Smtp:Port"]!),
             Credentials = new NetworkCredential(
@@ -24,7 +29,7 @@ public class GmailEmailService : IEmailService
             EnableSsl = true
         };
 
-        var mail = new MailMessage
+        using var mail = new MailMessage
         {
             From = new MailAddress(_config["Smtp:From"]!),
             Subject = subject,
@@ -33,7 +38,11 @@ public class GmailEmailService : IEmailService
         };
 
         mail.To.Add(to);
+        if (!string.IsNullOrWhiteSpace(cc))
+        {
+            mail.CC.Add(cc);
+        }
 
-        await smtpClient.SendMailAsync(mail);
+        await smtpClient.SendMailAsync(mail, cancellationToken);
     }
 }
