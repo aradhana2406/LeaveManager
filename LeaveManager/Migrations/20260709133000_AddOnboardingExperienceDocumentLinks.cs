@@ -1,3 +1,5 @@
+using LeaveManager.Data;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -5,6 +7,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace LeaveManager.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(AppDbContext))]
+    [Migration("20260709133000_AddOnboardingExperienceDocumentLinks")]
     public partial class AddOnboardingExperienceDocumentLinks : Migration
     {
         /// <inheritdoc />
@@ -27,7 +31,7 @@ namespace LeaveManager.Migrations
                 column: "EmployeeOnboardingExperienceId",
                 principalTable: "EmployeeOnboardingExperiences",
                 principalColumn: "Id",
-                onDelete: ReferentialAction.SetNull);
+                onDelete: ReferentialAction.NoAction);
         }
 
         /// <inheritdoc />

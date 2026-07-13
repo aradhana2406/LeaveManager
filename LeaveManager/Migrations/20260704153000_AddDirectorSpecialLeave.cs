@@ -1,3 +1,5 @@
+using LeaveManager.Data;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -5,6 +7,8 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace LeaveManager.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(AppDbContext))]
+    [Migration("20260704153000_AddDirectorSpecialLeave")]
     public partial class AddDirectorSpecialLeave : Migration
     {
         /// <inheritdoc />
@@ -13,6 +17,7 @@ namespace LeaveManager.Migrations
             migrationBuilder.InsertData(
                 table: "LeaveTypes",
                 columns: new[] { "Id", "AccrualPerMonth", "AdvanceNoticeDays", "IsAccrued", "IsPaid", "Name", "RequiresAdvanceNotice" },
+                columnTypes: new[] { "int", "decimal(5,2)", "int", "bit", "bit", "nvarchar(100)", "bit" },
                 values: new object[] { 5, 0m, 0, false, true, "Director Special Leave", false });
 
             migrationBuilder.Sql("""
@@ -38,6 +43,7 @@ namespace LeaveManager.Migrations
             migrationBuilder.DeleteData(
                 table: "LeaveTypes",
                 keyColumn: "Id",
+                keyColumnType: "int",
                 keyValue: 5);
         }
     }
