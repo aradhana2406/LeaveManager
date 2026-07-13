@@ -10,11 +10,11 @@ LeaveManager is a .NET 8 employee leave-management application. It provides a br
 - EF Core migrations and seed data
 - ClosedXML for Excel import/export
 - Swagger/OpenAPI
-- React 18, Redux, and Tabulator
-- Vite 8 frontend tooling
+- React 18 browser UI
+- Redux and Tabulator
 - Gmail SMTP notifications
 
-The editable frontend is in `LeaveManager/ClientApp`. Vite compiles it into `LeaveManager/wwwroot`, which ASP.NET Core serves in production.
+The React frontend is served by ASP.NET Core from `LeaveManager/wwwroot`. It uses React, ReactDOM, Redux, and Tabulator from CDN script tags in `wwwroot/index.html`, with application code in `wwwroot/app.js` and styles in `wwwroot/styles.css`.
 
 ## Repository structure
 
@@ -32,17 +32,11 @@ LeaveManager/
     |-- Features/                     # Application handlers/services
     |-- Infrastructure/               # Email and token services
     |-- Migrations/                   # SQL Server schema migrations
-    |-- ClientApp/                    # Editable React/Vite source
-    |   |-- src/
-    |   |   |-- components/           # Separate React screen and shared UI components
-    |   |   |-- core/                 # API helpers, constants, shared UI runtime, domain helpers
-    |   |   |-- state/                # Redux store and reducer
-    |   |   |-- main.jsx              # React entry point
-    |   |   `-- styles.css            # App styles
-    |   |-- public/                   # Static frontend assets copied by Vite
-    |   |-- package.json              # Frontend dependencies and scripts
-    |   `-- vite.config.js            # Vite build/dev-server config
-    `-- wwwroot/                      # Compiled React production output
+    `-- wwwroot/                      # React frontend served by ASP.NET Core
+        |-- index.html                # Loads React, Redux, Tabulator, app script, and styles
+        |-- app.js                    # React application and browser-side state
+        |-- styles.css                # Frontend styles
+        `-- assets/                   # Images and other static assets
 ```
 
 ## Prerequisites
@@ -51,13 +45,12 @@ Install:
 
 1. [Git](https://git-scm.com/)
 2. [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-3. Node.js `20.19+`, `22.12+`, or a newer supported version
-4. One of the following SQL Server options:
+3. One of the following SQL Server options:
    - SQL Server Express LocalDB (simplest option on Windows)
    - SQL Server Express or Developer Edition
    - A reachable SQL Server/Azure SQL instance
-5. A modern browser
-6. Visual Studio 2022 with the **ASP.NET and web development** workload (optional)
+4. A modern browser
+5. Visual Studio 2022 with the **ASP.NET and web development** workload (optional)
 
 Verify the command-line tools:
 
@@ -65,8 +58,6 @@ Verify the command-line tools:
 git --version
 dotnet --version
 dotnet --list-sdks
-node --version
-npm --version
 ```
 
 The installed SDK list must include an `8.0.x` SDK or a compatible newer SDK capable of building `net8.0`.
@@ -79,10 +70,6 @@ Use these steps when you want the shortest path from a fresh clone to a running 
 git clone https://github.com/aradhana2406/LeaveManager.git
 cd LeaveManager
 dotnet restore LeaveManager.sln
-cd LeaveManager/ClientApp
-npm.cmd ci
-npm.cmd run build
-cd ../..
 dotnet build LeaveManager.sln
 dotnet run --project LeaveManager/LeaveManager.csproj --launch-profile http
 ```
@@ -104,7 +91,7 @@ No manual database creation is required. On first startup, the application appli
 $env:UseInMemoryDatabase = "true"
 ```
 
-Use `npm.cmd` in PowerShell if `npm` is blocked by the Windows script execution policy.
+The React frontend is already in `LeaveManager/wwwroot`, so no separate Node or frontend build step is required.
 
 ## Visual Studio setup (recommended for Windows)
 
@@ -143,21 +130,13 @@ Use this workflow if you want to clone, configure, migrate, and run the project 
 
 The `http` profile starts the application at `http://localhost:5054` with the Development environment.
 
-### 4. Restore and build the React frontend
+### 4. Review the React frontend files
 
 1. In Visual Studio, select **View > Terminal**.
-2. Run:
+2. Open `LeaveManager/wwwroot/index.html`, `LeaveManager/wwwroot/app.js`, and `LeaveManager/wwwroot/styles.css`.
+3. Confirm the browser libraries are loaded in `index.html` and that the application root is `<div id="root"></div>`.
 
-   ```powershell
-   cd LeaveManager/ClientApp
-   npm.cmd ci
-   npm.cmd run build
-   cd ../..
-   ```
-
-3. Confirm `LeaveManager/wwwroot/index.html` and compiled files under `LeaveManager/wwwroot/assets` were generated.
-
-Use `npm ci` after cloning because it installs the exact versions in `package-lock.json`. Run `npm install` only when intentionally adding or updating frontend dependencies. If PowerShell allows `npm` directly on your machine, `npm ci` and `npm run build` are also fine.
+The frontend is a React application served directly by ASP.NET Core static files. Edit the files under `wwwroot` when changing the UI.
 
 ### 5. Configure SQL Server LocalDB
 
@@ -285,31 +264,18 @@ All commands below assume the terminal is in this repository root unless stated 
 dotnet restore LeaveManager.sln
 ```
 
-### 3. Install and build the React frontend
+### 3. Review the React frontend
 
-```powershell
-cd LeaveManager/ClientApp
-npm.cmd ci
-npm.cmd run build
-cd ../..
-```
+The deployable React application lives in `LeaveManager/wwwroot`:
 
-The build writes the deployable React application to `LeaveManager/wwwroot`.
+| File or folder | Purpose |
+|---|---|
+| `wwwroot/index.html` | Loads React, ReactDOM, Redux, Tabulator, styles, and app script |
+| `wwwroot/app.js` | React components, state, API calls, and browser interaction |
+| `wwwroot/styles.css` | Frontend layout and visual styles |
+| `wwwroot/assets/` | Images and static assets |
 
-For frontend development, run the ASP.NET Core API and Vite in separate terminals:
-
-```powershell
-# Terminal 1, from the repository root
-dotnet run --project LeaveManager/LeaveManager.csproj --launch-profile http
-```
-
-```powershell
-# Terminal 2
-cd LeaveManager/ClientApp
-npm.cmd run dev
-```
-
-Open `http://localhost:5173`. Vite proxies `/api` requests to the ASP.NET Core API at `http://localhost:5054`.
+Run the ASP.NET Core application and open `http://localhost:5054` to develop against the served React UI.
 
 ### 4. Configure the database
 
@@ -441,14 +407,7 @@ For a Release build:
 dotnet build LeaveManager.sln --configuration Release
 ```
 
-If frontend files changed, run the React build before the .NET build:
-
-```powershell
-cd LeaveManager/ClientApp
-npm.cmd run build
-cd ../..
-dotnet build LeaveManager.sln --configuration Release
-```
+If frontend files changed, run the .NET build and then start the app to verify the updated static files are served correctly.
 
 ### 8. Run the application
 
@@ -480,7 +439,7 @@ Use publish when you want deployable build output:
 dotnet publish LeaveManager/LeaveManager.csproj --configuration Release --output artifacts/publish
 ```
 
-The project file runs `npm ci` and `npm run build` during publish, then copies the compiled React output from `ClientApp` into `wwwroot`.
+The publish output includes the React files from `wwwroot`.
 
 The published files are written to:
 
@@ -527,44 +486,14 @@ After the site starts:
 7. Return to the employee account and confirm the status/balance update.
 8. Use Swagger to inspect and try API request/response schemas.
 
-The frontend source is a Vite-powered React application. Validate a production build with:
-
-```powershell
-cd LeaveManager/ClientApp
-npm.cmd ci
-npm.cmd run build
-npm.cmd audit
-cd ../..
-```
-
-If PowerShell says `npm.ps1 cannot be loaded because running scripts is disabled`, run the same commands with `npm.cmd`:
-
-```powershell
-npm.cmd ci
-npm.cmd run build
-npm.cmd audit
-```
-
-Edit files under `ClientApp/src` and `ClientApp/public`; do not hand-edit hashed files in `wwwroot/assets` because Vite replaces them on the next build.
-
-The main React files are separated like this:
+The frontend is a React application served from `wwwroot`. Edit these files directly:
 
 | Folder/file | Purpose |
 |---|---|
-| `ClientApp/src/main.jsx` | Mounts the React app into the browser |
-| `ClientApp/src/components/App.jsx` | App shell, login screen, sidebar routing |
-| `ClientApp/src/components/Home.jsx` | HR home, HR control panel, leadership overview |
-| `ClientApp/src/components/LeaveHome.jsx` | Employee leave request and leave history screen |
-| `ClientApp/src/components/EmployeeOnboarding.jsx` | Employee onboarding part 2 |
-| `ClientApp/src/components/DeviceManagement.jsx` | Device ticket forms, queue, and timeline |
-| `ClientApp/src/components/HrRegistration.jsx` | HR employee registration/onboarding part 1 |
-| `ClientApp/src/components/ProjectBuilder.jsx` | Project and team management |
-| `ClientApp/src/components/HrBulkUploads.jsx` | Excel upload screens |
-| `ClientApp/src/components/ReviewerInbox.jsx` | Leave approval inbox |
-| `ClientApp/src/components/Directory.jsx` | Organization hierarchy and employee edit modal |
-| `ClientApp/src/components/common.jsx` | Shared components such as fields, messages, cards, and upload results |
-| `ClientApp/src/core/` | API calls, helper functions, constants, React helper |
-| `ClientApp/src/state/store.js` | Redux initial state, reducer, and store |
+| `wwwroot/index.html` | Browser entry point and CDN library references |
+| `wwwroot/app.js` | React app shell, screens, API helpers, Redux store, and UI logic |
+| `wwwroot/styles.css` | Application styling |
+| `wwwroot/assets/` | Logo and carousel images |
 
 ## Excel imports
 

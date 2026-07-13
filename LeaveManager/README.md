@@ -1,10 +1,10 @@
 # LeaveManager - Leave Management System
 
-A .NET 8 leave management API built with ASP.NET Core, Entity Framework Core, ClosedXML, and SQL Server.
+A .NET 8 leave-management application with an ASP.NET Core REST API and a React frontend served from `wwwroot`.
 
 ## Project Overview
 
-LeaveManager is a RESTful API for managing employee leave applications, leave approval, leave types, and leave balance allocations.
+LeaveManager manages employee administration, leave applications, approvals, leave balances, Excel imports, onboarding, HR policies, and device-support tickets. The backend exposes REST endpoints, and the browser UI is a React app loaded by ASP.NET Core static files.
 
 **Tech Stack:**
 - **.NET 8** - Runtime framework
@@ -12,10 +12,30 @@ LeaveManager is a RESTful API for managing employee leave applications, leave ap
 - **Entity Framework Core** - ORM
 - **ClosedXML** - Excel file processing
 - **SQL Server** - Database
+- **React 18** - Browser UI
+- **Redux** - Browser-side state management
+- **Tabulator** - Interactive employee directory tables
+
+## Frontend
+
+The React frontend lives in `wwwroot`:
+
+| File or folder | Purpose |
+|---|---|
+| `wwwroot/index.html` | Loads React, ReactDOM, Redux, Tabulator, styles, and the app script |
+| `wwwroot/app.js` | React components, API calls, Redux store, screen routing, and UI behavior |
+| `wwwroot/styles.css` | Application layout and visual styling |
+| `wwwroot/assets/` | Logo, carousel images, and other static assets |
+
+Run the application and open `http://localhost:5054` to use the React UI. Swagger remains available at `http://localhost:5054/swagger` in Development.
+
+```powershell
+dotnet run --project LeaveManager.csproj --launch-profile http
+```
 
 ## Architecture
 
-The project uses a lightweight command-handler style. Controllers receive HTTP requests, create or accept command objects, and call the matching handler directly through dependency injection.
+The project uses a lightweight command-handler style. Controllers receive HTTP requests from the React UI or Swagger, create or accept command objects, and call the matching handler directly through dependency injection.
 
 Example flow for uploading leave balances:
 
@@ -33,6 +53,13 @@ Handlers are registered in `Program.cs`:
 builder.Services.AddScoped<ApplyLeaveHandler>();
 builder.Services.AddScoped<ApproveLeaveHandler>();
 builder.Services.AddScoped<UploadLeaveBalanceExcelHandler>();
+```
+
+Static frontend files are enabled in `Program.cs`:
+
+```csharp
+app.UseDefaultFiles();
+app.UseStaticFiles();
 ```
 
 ## Excel File Format
