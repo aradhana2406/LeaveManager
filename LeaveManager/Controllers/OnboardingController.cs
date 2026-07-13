@@ -154,6 +154,7 @@ public class OnboardingController : ControllerBase
 
         var profile = await _context.EmployeeOnboardingProfiles
             .Include(x => x.Experiences)
+                .ThenInclude(x => x.Documents)
             .FirstOrDefaultAsync(x => x.EmployeeId == request.EmployeeId, cancellationToken);
 
         var existingExperienceIds = profile == null

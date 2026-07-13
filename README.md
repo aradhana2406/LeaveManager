@@ -10,10 +10,11 @@ LeaveManager is a .NET 8 employee leave-management application. It provides a br
 - EF Core migrations and seed data
 - ClosedXML for Excel import/export
 - Swagger/OpenAPI
-- HTML, CSS, and JavaScript served from `LeaveManager/wwwroot`
+- React 18 browser UI
+- Redux and Tabulator
 - Gmail SMTP notifications
 
-The front end is part of the ASP.NET Core project, so there is no separate Node.js build or package installation.
+The React frontend is served by ASP.NET Core from `LeaveManager/wwwroot`. It uses React, ReactDOM, Redux, and Tabulator from CDN script tags in `wwwroot/index.html`, with application code in `wwwroot/app.js` and styles in `wwwroot/styles.css`.
 
 ## Repository structure
 
@@ -31,7 +32,11 @@ LeaveManager/
     |-- Features/                     # Application handlers/services
     |-- Infrastructure/               # Email and token services
     |-- Migrations/                   # SQL Server schema migrations
-    `-- wwwroot/                      # Browser application
+    `-- wwwroot/                      # React frontend served by ASP.NET Core
+        |-- index.html                # Loads React, Redux, Tabulator, app script, and styles
+        |-- app.js                    # React application and browser-side state
+        |-- styles.css                # Frontend styles
+        `-- assets/                   # Images and other static assets
 ```
 
 ## Prerequisites
@@ -56,6 +61,37 @@ dotnet --list-sdks
 ```
 
 The installed SDK list must include an `8.0.x` SDK or a compatible newer SDK capable of building `net8.0`.
+
+## Quick start after cloning
+
+Use these steps when you want the shortest path from a fresh clone to a running application.
+
+```powershell
+git clone https://github.com/aradhana2406/LeaveManager.git
+cd LeaveManager
+dotnet restore LeaveManager.sln
+dotnet build LeaveManager.sln
+dotnet run --project LeaveManager/LeaveManager.csproj --launch-profile http
+```
+
+Then open:
+
+- Application: <http://localhost:5054>
+- Swagger UI: <http://localhost:5054/swagger>
+
+The default Windows development database is SQL Server LocalDB:
+
+```text
+Server=(localdb)\MSSQLLocalDB;Database=LeaveManagerDb;Integrated Security=true;TrustServerCertificate=True
+```
+
+No manual database creation is required. On first startup, the application applies EF Core migrations and seeds demo data. If you do not have SQL Server available and only want a temporary demo, run this before `dotnet run`:
+
+```powershell
+$env:UseInMemoryDatabase = "true"
+```
+
+The React frontend is already in `LeaveManager/wwwroot`, so no separate Node or frontend build step is required.
 
 ## Visual Studio setup (recommended for Windows)
 
@@ -94,7 +130,15 @@ Use this workflow if you want to clone, configure, migrate, and run the project 
 
 The `http` profile starts the application at `http://localhost:5054` with the Development environment.
 
-### 4. Configure SQL Server LocalDB
+### 4. Review the React frontend files
+
+1. In Visual Studio, select **View > Terminal**.
+2. Open `LeaveManager/wwwroot/index.html`, `LeaveManager/wwwroot/app.js`, and `LeaveManager/wwwroot/styles.css`.
+3. Confirm the browser libraries are loaded in `index.html` and that the application root is `<div id="root"></div>`.
+
+The frontend is a React application served directly by ASP.NET Core static files. Edit the files under `wwwroot` when changing the UI.
+
+### 5. Configure SQL Server LocalDB
 
 The project is already configured to use the default LocalDB instance and a database named `LeaveManagerDb`:
 
@@ -114,7 +158,7 @@ No database needs to be created manually. EF Core creates `LeaveManagerDb` when 
 
 If you use a different SQL Server instance, do not put its password in `appsettings.json`. Configure it with User Secrets as described next.
 
-### 5. Configure local secrets in Visual Studio
+### 6. Configure local secrets in Visual Studio
 
 1. In **Solution Explorer**, right-click the `LeaveManager` project.
 2. Select **Manage User Secrets**.
@@ -153,7 +197,7 @@ If you only want to explore the UI without SQL Server, add this instead:
 
 In-memory data is deleted whenever the application stops.
 
-### 6. Apply database migrations from Visual Studio
+### 7. Apply database migrations from Visual Studio
 
 The application automatically applies pending migrations when it starts. To apply them manually first:
 
@@ -180,7 +224,7 @@ cd ..
 
 Do not run SQL migrations when `UseInMemoryDatabase` is enabled.
 
-### 7. Build and run in Visual Studio
+### 8. Build and run in Visual Studio
 
 1. Select **Build > Build Solution**, or press `Ctrl+Shift+B`.
 2. Confirm the **Error List** has no build errors.
@@ -193,7 +237,7 @@ On the first run, EF Core applies migrations and seeds demo accounts. Sign in wi
 
 To stop the application, click the red stop button in Visual Studio or press `Shift+F5`.
 
-### 8. Common Visual Studio fixes
+### 9. Common Visual Studio fixes
 
 - **NuGet packages are missing:** right-click the solution and select **Restore NuGet Packages**.
 - **The wrong page opens:** confirm the `http` profile is selected and browse directly to `http://localhost:5054`.
@@ -220,7 +264,20 @@ All commands below assume the terminal is in this repository root unless stated 
 dotnet restore LeaveManager.sln
 ```
 
-### 3. Configure the database
+### 3. Review the React frontend
+
+The deployable React application lives in `LeaveManager/wwwroot`:
+
+| File or folder | Purpose |
+|---|---|
+| `wwwroot/index.html` | Loads React, ReactDOM, Redux, Tabulator, styles, and app script |
+| `wwwroot/app.js` | React components, state, API calls, and browser interaction |
+| `wwwroot/styles.css` | Frontend layout and visual styles |
+| `wwwroot/assets/` | Images and static assets |
+
+Run the ASP.NET Core application and open `http://localhost:5054` to develop against the served React UI.
+
+### 4. Configure the database
 
 The application reads its connection string from `ConnectionStrings:DefaultConnection`. The checked-in development default is:
 
@@ -282,7 +339,7 @@ $env:UseInMemoryDatabase = "true"
 
 This database is erased every time the application stops. EF migration commands still target SQL Server, so do not use them in this mode.
 
-### 4. Configure email
+### 5. Configure email
 
 The leave approval, onboarding, and device-ticket workflows send SMTP email. Configure these settings before testing email-dependent actions:
 
@@ -299,7 +356,7 @@ For Gmail, enable two-step verification and create a Google App Password. Do not
 
 For a deployed application, change `AppSettings__BaseUrl` to its public HTTPS URL so email links point to the correct site.
 
-### 5. Create and update the database
+### 6. Create and update the database
 
 The application automatically runs `Database.Migrate()` and seeds data at startup. Therefore, the simplest setup is to continue to the run step.
 
@@ -336,7 +393,7 @@ dotnet ef database update
 cd ..
 ```
 
-### 6. Build the solution
+### 7. Build the solution
 
 ```powershell
 dotnet build LeaveManager.sln
@@ -344,7 +401,15 @@ dotnet build LeaveManager.sln
 
 The build should complete with zero errors.
 
-### 7. Run the application
+For a Release build:
+
+```powershell
+dotnet build LeaveManager.sln --configuration Release
+```
+
+If frontend files changed, run the .NET build and then start the app to verify the updated static files are served correctly.
+
+### 8. Run the application
 
 ```powershell
 dotnet run --project LeaveManager/LeaveManager.csproj --launch-profile http
@@ -365,6 +430,29 @@ dotnet run --project LeaveManager/LeaveManager.csproj --launch-profile https
 ```
 
 The HTTPS profile uses `https://localhost:7087` and also listens on `http://localhost:5054`.
+
+### 9. Publish the application
+
+Use publish when you want deployable build output:
+
+```powershell
+dotnet publish LeaveManager/LeaveManager.csproj --configuration Release --output artifacts/publish
+```
+
+The publish output includes the React files from `wwwroot`.
+
+The published files are written to:
+
+```text
+artifacts/publish
+```
+
+Run the published app locally with:
+
+```powershell
+cd artifacts/publish
+dotnet LeaveManager.dll
+```
 
 ## Database initialization and seed accounts
 
@@ -398,11 +486,14 @@ After the site starts:
 7. Return to the employee account and confirm the status/balance update.
 8. Use Swagger to inspect and try API request/response schemas.
 
-The front end is static JavaScript. If Node.js is installed, its syntax can be checked with:
+The frontend is a React application served from `wwwroot`. Edit these files directly:
 
-```powershell
-node --check LeaveManager/wwwroot/app.js
-```
+| Folder/file | Purpose |
+|---|---|
+| `wwwroot/index.html` | Browser entry point and CDN library references |
+| `wwwroot/app.js` | React app shell, screens, API helpers, Redux store, and UI logic |
+| `wwwroot/styles.css` | Application styling |
+| `wwwroot/assets/` | Logo and carousel images |
 
 ## Excel imports
 

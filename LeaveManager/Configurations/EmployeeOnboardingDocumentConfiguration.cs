@@ -40,6 +40,6 @@ public class EmployeeOnboardingDocumentConfiguration : IEntityTypeConfiguration<
         builder.HasOne(x => x.EmployeeOnboardingExperience)
             .WithMany(x => x.Documents)
             .HasForeignKey(x => x.EmployeeOnboardingExperienceId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.ClientSetNull);
     }
 }
